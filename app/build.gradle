@@ -1,0 +1,38 @@
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "com.ykbjson.app.simpledlna"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode rootProject.ext.versionCode
+        versionName rootProject.ext.versionName
+    }
+
+    compileOptions {
+        sourceCompatibility 1.8
+        targetCompatibility 1.8
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    //去重复的引用
+    packagingOptions {
+        exclude 'META-INF/beans.xml'
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "androidx.appcompat:appcompat:$rootProject.ext.supportLibraryVersion"
+    implementation "androidx.constraintlayout:constraintlayout:$rootProject.ext.constraintlayoutVersion"
+    implementation "com.google.android.material:material:$rootProject.ext.materialVersion"
+    implementation project(":simplepermission")
+    implementation project(":screening")
+}

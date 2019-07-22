@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">SimpleDlna</string>
+    <string name="action_select_image">选择图片</string>
+    <string name="action_select_audio">选择音频</string>
+    <string name="action_select_video">选择视频</string>
+    <string name="search_device">努力搜索设备中，请稍后···</string>
+</resources>

@@ -1,0 +1,59 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    repositories {
+        google()
+        jcenter()
+        maven {
+            url 'http://4thline.org/m2'
+        }
+
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.4.2'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        jcenter()
+        maven {
+            url 'http://4thline.org/m2'
+        }
+
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
+
+ext {
+    versionCode = 1
+    versionName = "1.0.0"
+
+    // third_party/android_sdk/README.chromium
+    compileSdkVersion = 28
+    buildToolsVersion = "28.0.3"
+    minSdkVersion = 19
+    targetSdkVersion = 28
+
+    // tools/android/roll/update_support_library.py
+    supportLibraryVersion = "1.0.2"
+    constraintlayoutVersion = "1.1.3"
+    materialVersion = "1.0.0"
+
+    espressoVersion = "3.2.0"
+    runnerVersion = "1.2.0"
+    junitVersion = "4.12"
+
+    clingVersion = "2.1.2"
+    jettyVersion = "8.1.22.v20160922"
+    slf4jVersion = "1.7.25"
+
+    rxAndroidVersion = "2.1.1"
+}

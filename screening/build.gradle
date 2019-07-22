@@ -1,0 +1,38 @@
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
+    defaultConfig {
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode rootProject.ext.versionCode
+        versionName rootProject.ext.versionName
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+    }
+
+}
+
+dependencies {
+    api fileTree(dir: 'libs', include: ['*.jar'])
+
+    api "androidx.appcompat:appcompat:$rootProject.ext.supportLibraryVersion"
+    // Cling library
+    api "org.fourthline.cling:cling-core:$rootProject.ext.clingVersion"
+    api "org.fourthline.cling:cling-support:$rootProject.ext.clingVersion"
+    // Jetty library
+    api "org.eclipse.jetty:jetty-server:$rootProject.ext.jettyVersion"
+    api "org.eclipse.jetty:jetty-servlet:$rootProject.ext.jettyVersion"
+    api "org.eclipse.jetty:jetty-client:$rootProject.ext.jettyVersion"
+    api "org.slf4j:slf4j-simple:$rootProject.ext.slf4jVersion"
+    api project(':webserver')//本地投屏sdk
+}
