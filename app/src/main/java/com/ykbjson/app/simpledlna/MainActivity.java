@@ -247,6 +247,7 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
     }
 
     private void screeningPhone() {
+        startTime=0;
         curItemType = MediaInfo.TYPE_VIDEO;
         try {
             if (!screenRecorderService.hasPrepared()) {
