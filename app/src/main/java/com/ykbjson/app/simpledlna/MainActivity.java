@@ -40,6 +40,7 @@ import com.ykbjson.lib.screening.listener.DLNARegistryListener;
 import com.ykbjson.lib.screening.listener.DLNAStateCallback;
 import com.ykbjson.lib.screenrecorder.ICallback;
 import com.ykbjson.lib.screenrecorder.IScreenRecorderService;
+import com.ykbjson.lib.screenrecorder.Notifications;
 import com.ykbjson.lib.screenrecorder.ScreenRecorderServiceImpl;
 import com.ykbjson.lib.simplepermission.PermissionsManager;
 import com.ykbjson.lib.simplepermission.PermissionsRequestCallback;
@@ -69,10 +70,13 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
     private ListView mDeviceListView;
 
     private IScreenRecorderService screenRecorderService;
+    private Notifications mNotifications;
+   private long startTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mNotifications = new Notifications(getApplicationContext());
         DLNAManager.setIsDebugMode(BuildConfig.DEBUG);
         PermissionsManager.getInstance().requestAllManifestPermissionsIfNecessary(CODE_REQUEST_PERMISSION,
                 this, new PermissionsRequestCallback() {
@@ -154,13 +158,14 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         fabRecord.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-              if(null!=screenRecorderService){
-                  try {
-                      screenRecorderService.stopRecorder();
-                  } catch (RemoteException e) {
-                      e.printStackTrace();
-                  }
-              }
+                mNotifications.clear();
+                if (null != screenRecorderService) {
+                    try {
+                        screenRecorderService.stopRecorder();
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         });
     }
@@ -312,6 +317,13 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
     @Override
     public void onStopRecord(String error) {
         Log.d(TAG, "ScreenRecorder onStopRecord");
+        if (null != screenRecorderService) {
+            try {
+                screenRecorderService.stopRecorder();
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
@@ -323,10 +335,16 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         if (null != mDLNAPlayer && null != mDeviceInfo) {
             mDLNAPlayer.connect(mDeviceInfo);
         }
+        mNotifications.recording(0);
     }
 
     @Override
     public void onRecording(long presentationTimeUs) {
+        if (startTime <= 0) {
+            startTime = presentationTimeUs;
+        }
+        long time = (presentationTimeUs - startTime) / 1000;
+        mNotifications.recording(time);
     }
 
     private void initScreenRecorder() {

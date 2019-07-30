@@ -1,7 +1,10 @@
 package com.ykbjson.lib.screenrecorder;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Point;
@@ -105,6 +108,7 @@ public class ScreenRecorderServiceImpl extends Service {
                 throw new RemoteException("ScreenRecorder has not been initialized yet");
             }
             mScreenRecorder.start();
+            registerReceiver(mStopActionReceiver, new IntentFilter(Notifications.ACTION_STOP));
         }
 
         @Override
@@ -113,7 +117,7 @@ public class ScreenRecorderServiceImpl extends Service {
                 throw new RemoteException("ScreenRecorder has not been initialized yet");
             }
             mScreenRecorder.quit();
-
+            unregisterReceiver(mStopActionReceiver);
         }
 
         @Override
@@ -237,7 +241,20 @@ public class ScreenRecorderServiceImpl extends Service {
                 }
             }
         };
+
+        private final BroadcastReceiver mStopActionReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (Notifications.ACTION_STOP.equals(intent.getAction())) {
+                    if (null!=mScreenRecorderService){
+                        try {
+                            stopRecorder();
+                        } catch (RemoteException e) {
+                            //ignored
+                        }
+                    }
+                }
+            }
+        };
     }
-
-
 }
