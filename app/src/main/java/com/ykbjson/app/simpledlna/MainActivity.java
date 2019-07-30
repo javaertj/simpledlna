@@ -30,7 +30,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.ykbjson.lib.screening.BuildConfig;
 import com.ykbjson.lib.screening.DLNAManager;
 import com.ykbjson.lib.screening.DLNAPlayer;
 import com.ykbjson.lib.screening.bean.DeviceInfo;
@@ -150,6 +149,20 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
                 DLNAManager.getInstance().startBrowser();
             }
         });
+
+        FloatingActionButton fabRecord = findViewById(R.id.fabRecord);
+        fabRecord.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+              if(null!=screenRecorderService){
+                  try {
+                      screenRecorderService.stopRecorder();
+                  } catch (RemoteException e) {
+                      e.printStackTrace();
+                  }
+              }
+            }
+        });
     }
 
 
@@ -266,9 +279,9 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
             if (!dir.exists() && !dir.mkdirs()) {
                 return;
             }
-            SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US);
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd-HH:mm:ss", Locale.CHINA);
             final File file = new File(dir, "ScreenRecord-" + format.format(new Date())
-                    + "-" + ".mp4");
+                    + ".mp4");
             try {
                 screenRecorderService.onPrepare(resultCode, data, null, null, file.getAbsolutePath());
             } catch (RemoteException e) {
@@ -314,7 +327,6 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
 
     @Override
     public void onRecording(long presentationTimeUs) {
-        Log.d(TAG, "ScreenRecorder onRecording,presentationTimeUs : " + presentationTimeUs);
     }
 
     private void initScreenRecorder() {
