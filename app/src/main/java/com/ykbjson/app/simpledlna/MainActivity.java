@@ -332,6 +332,11 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             screenRecorderService = (IScreenRecorderService) service;
+            try {
+                screenRecorderService.registerScreenRecorderCallback(MainActivity.this);
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
         }
 
         @Override
