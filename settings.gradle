@@ -1,1 +1,1 @@
-include ':app', ':screening', ':webserver', ':simplepermission'
+include ':app', ':screening', ':webserver', ':simplepermission', ':screenrecorder'

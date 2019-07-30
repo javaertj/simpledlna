@@ -3,8 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:context="com.ykbjson.app.simpledlna.MainActivity">
 
-
-
     <item
         android:id="@+id/action_select_image"
         android:orderInCategory="100"
@@ -17,11 +15,16 @@
         android:title="@string/action_select_audio"
         app:showAsAction="never" />
 
-
     <item
         android:id="@+id/action_select_video"
         android:orderInCategory="100"
         android:title="@string/action_select_video"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_screening_phone"
+        android:orderInCategory="100"
+        android:title="@string/action_screening_phone"
         app:showAsAction="never" />
 
 </menu>

@@ -34,8 +34,8 @@
 
         <!--DLNA服务-->
         <service android:name="com.ykbjson.lib.screening.DLNABrowserService" />
-
-
+        <!--录屏服务-->
+        <service android:name="com.ykbjson.lib.screenrecorder.ScreenRecorderServiceImpl" />
     </application>
 
 </manifest>

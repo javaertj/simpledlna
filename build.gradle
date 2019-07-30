@@ -39,7 +39,7 @@ ext {
     // third_party/android_sdk/README.chromium
     compileSdkVersion = 28
     buildToolsVersion = "28.0.3"
-    minSdkVersion = 19
+    minSdkVersion = 21
     targetSdkVersion = 28
 
     // tools/android/roll/update_support_library.py
