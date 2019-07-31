@@ -181,6 +181,16 @@ public class ScreenRecorderServiceImpl extends Service {
                 video = null == video ? createVideoConfig() : video;
                 audio = null == audio ? createAudioConfig() : audio;
 
+                MediaCodecInfo mediaCodecInfo = getVideoCodecInfo(video.codecName);
+                MediaCodecInfo.CodecCapabilities capabilities = mediaCodecInfo.getCapabilitiesForType(VIDEO_AVC);
+                MediaCodecInfo.VideoCapabilities videoCapabilities = capabilities.getVideoCapabilities();
+
+                if (!videoCapabilities.isSizeSupported(video.width, video.height)) {
+                    throw new RuntimeException("unSupport size," + video.codecName +
+                            " height range: " + videoCapabilities.getSupportedHeights() +
+                            "\n width range: " + videoCapabilities.getSupportedHeights());
+                }
+
                 File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
                         "Screenshots");
                 if (!dir.exists() && !dir.mkdirs()) {
@@ -257,6 +267,22 @@ public class ScreenRecorderServiceImpl extends Service {
             String packageName = getPackageName();
             int granted = pm.checkPermission(RECORD_AUDIO, packageName) | pm.checkPermission(WRITE_EXTERNAL_STORAGE, packageName);
             return granted == PackageManager.PERMISSION_GRANTED;
+        }
+
+
+        private MediaCodecInfo getVideoCodecInfo(String codecName) {
+            if (codecName == null) return null;
+            if (mAvcCodecInfos == null) {
+                mAvcCodecInfos = Utils.findEncodersByType(VIDEO_AVC);
+            }
+            MediaCodecInfo codec = null;
+            for (MediaCodecInfo info : mAvcCodecInfos) {
+                if (info.getName().equals(codecName)) {
+                    codec = info;
+                    break;
+                }
+            }
+            return codec;
         }
 
         private final MediaProjection.Callback mProjectionCallback = new MediaProjection.Callback() {
