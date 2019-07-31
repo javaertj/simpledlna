@@ -6,13 +6,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.IBinder;
-import android.os.RemoteException;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -47,11 +46,7 @@ import com.ykbjson.lib.simplepermission.PermissionsRequestCallback;
 
 import org.fourthline.cling.model.action.ActionInvocation;
 
-import java.io.File;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements DLNADeviceConnectListener, ICallback {
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -71,7 +66,7 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
 
     private IScreenRecorderService screenRecorderService;
     private Notifications mNotifications;
-   private long startTime = 0;
+    private long startTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -158,13 +153,8 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         fabRecord.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                mNotifications.clear();
                 if (null != screenRecorderService) {
-                    try {
-                        screenRecorderService.stopRecorder();
-                    } catch (RemoteException e) {
-                        e.printStackTrace();
-                    }
+                    screenRecorderService.stopRecorder();
                 }
             }
         });
@@ -247,16 +237,11 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
     }
 
     private void screeningPhone() {
-        startTime=0;
         curItemType = MediaInfo.TYPE_VIDEO;
-        try {
-            if (!screenRecorderService.hasPrepared()) {
-                requestMediaProjection();
-            } else {
-                screenRecorderService.startRecorder();
-            }
-        } catch (RemoteException e) {
-            e.printStackTrace();
+        if (!screenRecorderService.hasPrepared()) {
+            requestMediaProjection();
+        } else {
+            screenRecorderService.startRecorder();
         }
     }
 
@@ -280,29 +265,19 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
                 mDLNAPlayer.connect(mDeviceInfo);
             }
         } else if (requestCode == CODE_REQUEST_MEDIA_PROJECTION) {
-            File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
-                    "Screenshots");
-            if (!dir.exists() && !dir.mkdirs()) {
+            MediaProjectionManager mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+            MediaProjection mediaProjection = mMediaProjectionManager.getMediaProjection(resultCode, data);
+            if (null == mediaProjection) {
+                Toast.makeText(this, "media projection is null", Toast.LENGTH_SHORT).show();
                 return;
             }
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd-HH:mm:ss", Locale.CHINA);
-            final File file = new File(dir, "ScreenRecord-" + format.format(new Date())
-                    + ".mp4");
-            try {
-                screenRecorderService.onPrepare(resultCode, data, null, null, file.getAbsolutePath());
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
+            screenRecorderService.prepareAndStartRecorder(mediaProjection, null, null);
         }
     }
 
     @Override
     protected void onDestroy() {
-        try {
-            screenRecorderService.destroy();
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        }
+        screenRecorderService.destroyRecorder();
         unbindService(screenRecorderServiceConnection);
         mDLNAPlayer.disconnect();
         DLNAManager.getInstance().unregisterListener(mDLNARegistryListener);
@@ -310,25 +285,16 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         super.onDestroy();
     }
 
-    @Override
-    public IBinder asBinder() {
-        return null;
-    }
 
     @Override
-    public void onStopRecord(String error) {
+    public void onStopRecord(Throwable error) {
         Log.d(TAG, "ScreenRecorder onStopRecord");
-        if (null != screenRecorderService) {
-            try {
-                screenRecorderService.stopRecorder();
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
-        }
+        startTime = 0;
+        mNotifications.clear();
     }
 
     @Override
-    public void onStartRecord() throws RemoteException {
+    public void onStartRecord() {
         Log.d(TAG, "ScreenRecorder onStartRecord");
         final String savingFilePath = screenRecorderService.getSavingFilePath();
         mMediaPath = savingFilePath;
@@ -363,11 +329,7 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             screenRecorderService = (IScreenRecorderService) service;
-            try {
-                screenRecorderService.registerScreenRecorderCallback(MainActivity.this);
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
+            screenRecorderService.registerRecorderCallback(MainActivity.this);
         }
 
         @Override

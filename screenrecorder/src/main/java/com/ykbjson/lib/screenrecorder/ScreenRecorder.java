@@ -9,7 +9,6 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
-import android.os.RemoteException;
 import android.util.Log;
 import android.view.Surface;
 
@@ -60,10 +59,10 @@ public class ScreenRecorder {
      * @param display for {@link VirtualDisplay#setSurface(Surface)}
      * @param dstPath saving path
      */
-     ScreenRecorder(VideoEncodeConfig video,
-                          AudioEncodeConfig audio,
-                          VirtualDisplay display,
-                          String dstPath) {
+    ScreenRecorder(VideoEncodeConfig video,
+                   AudioEncodeConfig audio,
+                   VirtualDisplay display,
+                   String dstPath) {
         mVirtualDisplay = display;
         mDstPath = dstPath;
         mVideoEncoder = new VideoEncoder(video);
@@ -73,7 +72,7 @@ public class ScreenRecorder {
     /**
      * stop task
      */
-     final void quit() {
+    final void quit() {
         mForceQuit.set(true);
         if (!mIsRunning.get()) {
             release();
@@ -83,7 +82,7 @@ public class ScreenRecorder {
 
     }
 
-     void start() {
+    void start() {
         if (mWorker != null) throw new IllegalStateException();
         mWorker = new HandlerThread(TAG);
         mWorker.start();
@@ -91,11 +90,11 @@ public class ScreenRecorder {
         mHandler.sendEmptyMessage(MSG_START);
     }
 
-     void setCallback(ICallback callback) {
+    void setCallback(ICallback callback) {
         mCallback = callback;
     }
 
-     String getSavedPath() {
+    String getSavedPath() {
         return mDstPath;
     }
 
@@ -128,12 +127,8 @@ public class ScreenRecorder {
                     stopEncoders();
                     if (msg.arg1 != STOP_WITH_EOS) signalEndOfStream();
                     if (mCallback != null) {
-                        try {
-                            final Throwable error = (Throwable) msg.obj;
-                            mCallback.onStopRecord(null == error ? "UNKNOWN ERROR" : Log.getStackTraceString(error));
-                        }catch (RemoteException e){
-                            //ignored
-                        }
+                        final Throwable error = (Throwable) msg.obj;
+                        mCallback.onStopRecord(error);
                     }
                     release();
                     break;
@@ -250,11 +245,7 @@ public class ScreenRecorder {
                         + ", info: size=" + buffer.size
                         + ", presentationTimeUs=" + buffer.presentationTimeUs);
             if (!eos && mCallback != null) {
-                try{
-                    mCallback.onRecording(buffer.presentationTimeUs);
-                }catch (RemoteException e){
-                    //ignored
-                }
+                mCallback.onRecording(buffer.presentationTimeUs);
             }
         }
         if (encodedData != null) {

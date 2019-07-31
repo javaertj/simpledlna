@@ -12,15 +12,18 @@ import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.MediaCodecInfo;
 import android.media.projection.MediaProjection;
-import android.media.projection.MediaProjectionManager;
+import android.os.Binder;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.RemoteException;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 import static android.Manifest.permission.RECORD_AUDIO;
 import static android.Manifest.permission.WRITE_EXTERNAL_STORAGE;
@@ -47,81 +50,98 @@ public class ScreenRecorderServiceImpl extends Service {
         }
     }
 
-    @Nullable
     @Override
-    public IBinder onBind(Intent intent) {
+    public void onCreate() {
+        super.onCreate();
         mScreenRecorderService = new ScreenRecorderService();
-        return mScreenRecorderService;
     }
 
-    private final class ScreenRecorderService extends IScreenRecorderService.Stub {
+    @Nullable
+    @Override
+    public final IBinder onBind(Intent intent) {
+        return new ScreenRecorderServiceBinder();
+    }
 
-        private final int DEFAULT_AUDIO_BITRATE = 80 * 1000;
-        private final int DEFAULT_AUDIO_SAMPLERATE = 44100;
-        private final int DEFAULT_AUDIO_CHANNEL_COUNT = 2;
-        private final int DEFAULT_AUDIO_PROFILE = MediaCodecInfo.CodecProfileLevel.AACObjectMain;
+    @Override
+    public void onDestroy() {
+        mScreenRecorderService.destroyRecorder();
+        super.onDestroy();
+    }
 
-        private final int DEFAULT_VIDEO_BITRATE = 25000 * 1000;
-        private final int DEFAULT_VIDEO_FRAMERATE = 60;
-        private final int DEFAULT_VIDEO_IFRAME = 30;
-        private final int DEFAULT_VIDEO_WIDTH = 1080;
-        private final int DEFAULT_VIDEO_HEIGHT = 1920;
+    protected class ScreenRecorderService implements IScreenRecorderService {
+
+        final int DEFAULT_AUDIO_BITRATE = 80 * 1000;
+        final int DEFAULT_AUDIO_SAMPLERATE = 44100;
+        final int DEFAULT_AUDIO_CHANNEL_COUNT = 2;
+        final int DEFAULT_AUDIO_PROFILE = MediaCodecInfo.CodecProfileLevel.AACObjectMain;
+
+        final int DEFAULT_VIDEO_BITRATE = 25000 * 1000;
+        final int DEFAULT_VIDEO_FRAMERATE = 60;
+        final int DEFAULT_VIDEO_IFRAME = 30;
+        final int DEFAULT_VIDEO_WIDTH = 1080;
+        final int DEFAULT_VIDEO_HEIGHT = 1920;
 
 
-        private MediaProjectionManager mMediaProjectionManager;
-        private ScreenRecorder mScreenRecorder;
-        private MediaProjection mMediaProjection;
-        private VirtualDisplay mVirtualDisplay;
-        private boolean mIsLandscape;
-        private ICallback mCallback;
+        MediaProjection mMediaProjection;
+        ScreenRecorder mScreenRecorder;
+        VirtualDisplay mVirtualDisplay;
+        boolean mIsLandscape;
+        ICallback mCallback;
 
-        private MediaCodecInfo[] mAvcCodecInfos; // avc codecs
-        private MediaCodecInfo[] mAacCodecInfos; // aac codecs
+        MediaCodecInfo[] mAvcCodecInfos; // avc codecs
+        MediaCodecInfo[] mAacCodecInfos; // aac codecs
 
-        private ScreenRecorderService() {
+        ScreenRecorderService() {
             Utils.findEncodersByTypeAsync(VIDEO_AVC, infos -> mAvcCodecInfos = infos);
             Utils.findEncodersByTypeAsync(AUDIO_AAC, infos -> mAacCodecInfos = infos);
         }
 
         @Override
-        public void registerScreenRecorderCallback(ICallback callback) throws RemoteException {
+        public void registerRecorderCallback(ICallback callback) {
             mCallback = callback;
         }
 
         @Override
-        public void onPrepare(int resultCode, Intent intent, VideoEncodeConfig videoConfig, AudioEncodeConfig audioCofig, String savingFilePath) throws RemoteException {
+        public void prepareAndStartRecorder(MediaProjection mediaProjection, VideoEncodeConfig videoConfig,
+                                            AudioEncodeConfig audioConfig) {
             // NOTE: Should pass this result data into a Service to run ScreenRecorder.
-            // The following codes are merely exemplary.
-            mMediaProjectionManager = (MediaProjectionManager) getApplicationContext().getSystemService(MEDIA_PROJECTION_SERVICE);
-            MediaProjection mediaProjection = mMediaProjectionManager.getMediaProjection(resultCode, intent);
             if (mediaProjection == null) {
-                throw new RemoteException("media projection is null");
+                throw new RuntimeException("media projection is null");
             }
             mMediaProjection = mediaProjection;
             mMediaProjection.registerCallback(mProjectionCallback, new Handler());
-            startCapturing(mediaProjection, savingFilePath, videoConfig, audioCofig);
+            startRecorder(videoConfig, audioConfig);
         }
 
         @Override
-        public void startRecorder() throws RemoteException {
-            if (null == mScreenRecorder) {
-                throw new RemoteException("ScreenRecorder has not been initialized yet");
-            }
-            mScreenRecorder.start();
+        public void startRecorder(VideoEncodeConfig videoConfig, AudioEncodeConfig audioConfig) {
             registerReceiver(mStopActionReceiver, new IntentFilter(Notifications.ACTION_STOP));
+            prepareScreenRecorder(mMediaProjection, videoConfig, audioConfig);
+            mScreenRecorder.start();
         }
 
         @Override
-        public void stopRecorder() throws RemoteException {
+        public void startRecorder() {
+            startRecorder(null, null);
+        }
+
+        @Override
+        public void stopRecorder() {
+            try {
+                unregisterReceiver(mStopActionReceiver);
+            } catch (Exception e) {
+                //ignored
+            }
+
             if (null == mScreenRecorder) {
-                throw new RemoteException("ScreenRecorder has not been initialized yet");
+                throw new RuntimeException("ScreenRecorder has not been initialized yet");
             }
             mScreenRecorder.quit();
-            unregisterReceiver(mStopActionReceiver);
+            mScreenRecorder = null;
         }
 
         @Override
-        public void destroy() throws RemoteException {
+        public void destroyRecorder() {
             stopRecorder();
             if (mVirtualDisplay != null) {
                 mVirtualDisplay.setSurface(null);
@@ -136,16 +156,16 @@ public class ScreenRecorderServiceImpl extends Service {
         }
 
         @Override
-        public String getSavingFilePath() throws RemoteException {
+        public String getSavingFilePath() {
             if (null == mScreenRecorder) {
-                throw new RemoteException("ScreenRecorder has not been initialized yet");
+                throw new RuntimeException("ScreenRecorder has not been initialized yet");
             }
             return mScreenRecorder.getSavedPath();
         }
 
         @Override
         public boolean hasPrepared() {
-            return null != mScreenRecorder;
+            return null != mMediaProjection;
         }
 
 
@@ -153,19 +173,29 @@ public class ScreenRecorderServiceImpl extends Service {
             mIsLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE;
         }
 
-        private void startCapturing(MediaProjection mediaProjection, String savingFilePath,
-                                    VideoEncodeConfig video, AudioEncodeConfig audio) throws RemoteException {
-            video = null == video ? createVideoConfig() : video;
-            audio = null == audio ? createAudioConfig() : audio;
-            final File file = new File(savingFilePath);
-            Log.d(TAG, "Create recorder with :" + video + " \n " + audio + "\n " + file);
-            mScreenRecorder = newRecorder(mediaProjection, video, audio, file);
+        private void prepareScreenRecorder(MediaProjection mediaProjection, VideoEncodeConfig video, AudioEncodeConfig audio) {
+            if (mediaProjection == null) {
+                throw new RuntimeException("media projection is null");
+            }
             if (hasPermissions()) {
-                startRecorder();
+                video = null == video ? createVideoConfig() : video;
+                audio = null == audio ? createAudioConfig() : audio;
+
+                File dir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES),
+                        "Screenshots");
+                if (!dir.exists() && !dir.mkdirs()) {
+                    throw new RuntimeException("create file failure");
+                }
+                SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.CHINA);
+                File file = new File(dir, "ScreenRecord_" + format.format(new Date()) + "_" + video.width
+                        + "x" + video.height + ".mp4");
+                Log.d(TAG, "Create recorder with :" + video + " \n " + audio + "\n " + file);
+                mScreenRecorder = newRecorder(mediaProjection, video, audio, file);
             } else {
-                throw new RemoteException("Permission denied! Screen recorder is cancel");
+                throw new RuntimeException("Permission denied! Screen recorder is cancel");
             }
         }
+
 
         private ScreenRecorder newRecorder(MediaProjection mediaProjection, VideoEncodeConfig video,
                                            AudioEncodeConfig audio, File output) {
@@ -232,13 +262,7 @@ public class ScreenRecorderServiceImpl extends Service {
         private final MediaProjection.Callback mProjectionCallback = new MediaProjection.Callback() {
             @Override
             public void onStop() {
-                if (mScreenRecorder != null) {
-                    try {
-                        stopRecorder();
-                    } catch (RemoteException e) {
-                        //ignored
-                    }
-                }
+                stopRecorder();
             }
         };
 
@@ -246,15 +270,57 @@ public class ScreenRecorderServiceImpl extends Service {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (Notifications.ACTION_STOP.equals(intent.getAction())) {
-                    if (null!=mScreenRecorderService){
-                        try {
-                            stopRecorder();
-                        } catch (RemoteException e) {
-                            //ignored
-                        }
-                    }
+                    stopRecorder();
                 }
             }
         };
+    }
+
+    class ScreenRecorderServiceBinder extends Binder implements IScreenRecorderServiceBinder {
+
+        @Override
+        public IScreenRecorderService get() {
+            return mScreenRecorderService;
+        }
+
+        @Override
+        public void registerRecorderCallback(ICallback callback) {
+            mScreenRecorderService.registerRecorderCallback(callback);
+        }
+
+        @Override
+        public void prepareAndStartRecorder(MediaProjection mediaProjection, VideoEncodeConfig videoConfig, AudioEncodeConfig audioConfig) {
+            mScreenRecorderService.prepareAndStartRecorder(mediaProjection, videoConfig, audioConfig);
+        }
+
+        @Override
+        public void startRecorder(VideoEncodeConfig videoConfig, AudioEncodeConfig audioConfig) {
+            mScreenRecorderService.startRecorder(videoConfig, audioConfig);
+        }
+
+        @Override
+        public void startRecorder() {
+            mScreenRecorderService.startRecorder();
+        }
+
+        @Override
+        public void stopRecorder() {
+            mScreenRecorderService.stopRecorder();
+        }
+
+        @Override
+        public void destroyRecorder() {
+            mScreenRecorderService.destroyRecorder();
+        }
+
+        @Override
+        public String getSavingFilePath() {
+            return mScreenRecorderService.getSavingFilePath();
+        }
+
+        @Override
+        public boolean hasPrepared() {
+            return mScreenRecorderService.hasPrepared();
+        }
     }
 }
