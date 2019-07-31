@@ -202,7 +202,7 @@ public class ScreenRecorderServiceImpl extends Service {
                 Log.d(TAG, "Create recorder with :" + video + " \n " + audio + "\n " + file);
                 mScreenRecorder = newRecorder(mediaProjection, video, audio, file);
             } else {
-                throw new RuntimeException("Permission denied! Screen recorder is cancel");
+                throw new RuntimeException("Permission denied! Screen recorder is cancel.");
             }
         }
 
