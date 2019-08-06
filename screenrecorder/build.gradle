@@ -1,5 +1,11 @@
 apply plugin: 'com.android.library'
 
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+}
+
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
 
@@ -9,7 +15,6 @@ android {
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
     }
-
 
     buildTypes {
         release {
@@ -25,6 +30,8 @@ android {
 }
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    api fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
     implementation "androidx.appcompat:appcompat:$rootProject.ext.supportLibraryVersion"
+    api project(':rtmplibs')//流媒体推送sdk
+    api project(':nginxserver')//本地rtmp服务器
 }

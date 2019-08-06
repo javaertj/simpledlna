@@ -1,4 +1,3 @@
-
 package com.ykbjson.lib.screenrecorder;
 
 import android.media.MediaCodecInfo;
@@ -10,6 +9,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.ykbjson.lib.screenrecorder.ScreenRecorder.AUDIO_AAC;
+import static com.ykbjson.lib.screenrecorder.ScreenRecorder.VIDEO_AVC;
+
 /**
  * Description：工具类
  * <BR/>
@@ -17,8 +20,29 @@ import java.util.List;
  * <BR/>
  * CreatedAt：2019-07-29
  */
- class Utils {
+class Utils {
 
+    private static MediaCodecInfo[] mAvcCodecInfos; // avc codecs
+    private static MediaCodecInfo[] mAacCodecInfos; // aac codecs
+
+    public static MediaCodecInfo[] getmAacCodecInfos() {
+        if (null == mAacCodecInfos) {
+            mAacCodecInfos = findEncodersByType(AUDIO_AAC);
+        }
+        return mAacCodecInfos;
+    }
+
+    public static MediaCodecInfo[] getmAvcCodecInfos() {
+        if (null == mAvcCodecInfos) {
+            mAvcCodecInfos = findEncodersByType(VIDEO_AVC);
+        }
+        return mAvcCodecInfos;
+    }
+
+    static void initMediaCodecInfo() {
+        findEncodersByTypeAsync(VIDEO_AVC, infos -> mAvcCodecInfos = infos);
+        findEncodersByTypeAsync(AUDIO_AAC, infos -> mAacCodecInfos = infos);
+    }
 
     interface Callback {
         void onResult(MediaCodecInfo[] infos);

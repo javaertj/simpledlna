@@ -1,17 +1,11 @@
 package com.ykbjson.app.simpledlna;
 
 import android.Manifest;
-import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.media.projection.MediaProjection;
-import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -37,10 +31,6 @@ import com.ykbjson.lib.screening.listener.DLNAControlCallback;
 import com.ykbjson.lib.screening.listener.DLNADeviceConnectListener;
 import com.ykbjson.lib.screening.listener.DLNARegistryListener;
 import com.ykbjson.lib.screening.listener.DLNAStateCallback;
-import com.ykbjson.lib.screenrecorder.ICallback;
-import com.ykbjson.lib.screenrecorder.IScreenRecorderService;
-import com.ykbjson.lib.screenrecorder.Notifications;
-import com.ykbjson.lib.screenrecorder.ScreenRecorderServiceImpl;
 import com.ykbjson.lib.simplepermission.PermissionsManager;
 import com.ykbjson.lib.simplepermission.PermissionsRequestCallback;
 
@@ -48,11 +38,10 @@ import org.fourthline.cling.model.action.ActionInvocation;
 
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements DLNADeviceConnectListener, ICallback {
+public class MainActivity extends AppCompatActivity implements DLNADeviceConnectListener {
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final int CODE_REQUEST_PERMISSION = 1010;
     private static final int CODE_REQUEST_MEDIA = 1011;
-    private static final int CODE_REQUEST_MEDIA_PROJECTION = 1012;
 
     private int curItemType = MediaInfo.TYPE_UNKNOWN;
     private String mMediaPath;
@@ -64,14 +53,10 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
     private DevicesAdapter mDevicesAdapter;
     private ListView mDeviceListView;
 
-    private IScreenRecorderService screenRecorderService;
-    private Notifications mNotifications;
-    private long startTime = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        mNotifications = new Notifications(getApplicationContext());
         DLNAManager.setIsDebugMode(BuildConfig.DEBUG);
         PermissionsManager.getInstance().requestAllManifestPermissionsIfNecessary(CODE_REQUEST_PERMISSION,
                 this, new PermissionsRequestCallback() {
@@ -127,7 +112,7 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         mDeviceListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (TextUtils.isEmpty(mMediaPath) || curItemType == MediaInfo.TYPE_UNKNOWN) {
+                if (curItemType == MediaInfo.TYPE_UNKNOWN) {
                     return;
                 }
                 DeviceInfo deviceInfo = mDevicesAdapter.getItem(position);
@@ -153,9 +138,7 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         fabRecord.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (null != screenRecorderService) {
-                    screenRecorderService.stopRecorder();
-                }
+
             }
         });
     }
@@ -237,11 +220,9 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
     }
 
     private void screeningPhone() {
-        curItemType = MediaInfo.TYPE_VIDEO;
-        if (!screenRecorderService.hasPrepared()) {
-            requestMediaProjection();
-        } else {
-            screenRecorderService.startRecorder();
+        curItemType = MediaInfo.TYPE_MIRROR;
+        if (null != mDLNAPlayer && null != mDeviceInfo) {
+            mDLNAPlayer.connect(mDeviceInfo);
         }
     }
 
@@ -264,80 +245,34 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
             if (null != mDLNAPlayer && null != mDeviceInfo) {
                 mDLNAPlayer.connect(mDeviceInfo);
             }
-        } else if (requestCode == CODE_REQUEST_MEDIA_PROJECTION) {
-            MediaProjectionManager mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
-            MediaProjection mediaProjection = mMediaProjectionManager.getMediaProjection(resultCode, data);
-            if (null == mediaProjection) {
-                Toast.makeText(this, "media projection is null", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            screenRecorderService.prepareAndStartRecorder(mediaProjection, null, null);
         }
     }
 
     @Override
     protected void onDestroy() {
-        screenRecorderService.destroyRecorder();
-        unbindService(screenRecorderServiceConnection);
-        mDLNAPlayer.disconnect();
+        if (mDLNAPlayer!=null) {
+            mDLNAPlayer.stop(new DLNAControlCallback() {
+                @Override
+                public void onSuccess(@Nullable ActionInvocation invocation) {
+
+                }
+
+                @Override
+                public void onReceived(@Nullable ActionInvocation invocation, @Nullable Object... extra) {
+
+                }
+
+                @Override
+                public void onFailure(@Nullable ActionInvocation invocation, int errorCode, @Nullable String errorMsg) {
+
+                }
+            });
+            mDLNAPlayer.disconnect();
+        }
         DLNAManager.getInstance().unregisterListener(mDLNARegistryListener);
         DLNAManager.getInstance().destroy();
         super.onDestroy();
     }
-
-
-    @Override
-    public void onStopRecord(Throwable error) {
-        Log.d(TAG, "ScreenRecorder onStopRecord");
-        startTime = 0;
-        mNotifications.clear();
-    }
-
-    @Override
-    public void onStartRecord() {
-        Log.d(TAG, "ScreenRecorder onStartRecord");
-        final String savingFilePath = screenRecorderService.getSavingFilePath();
-        mMediaPath = savingFilePath;
-        Log.d(TAG, savingFilePath);
-        if (null != mDLNAPlayer && null != mDeviceInfo) {
-            mDLNAPlayer.connect(mDeviceInfo);
-        }
-        mNotifications.recording(0);
-    }
-
-    @Override
-    public void onRecording(long presentationTimeUs) {
-        if (startTime <= 0) {
-            startTime = presentationTimeUs;
-        }
-        long time = (presentationTimeUs - startTime) / 1000;
-        mNotifications.recording(time);
-    }
-
-    private void initScreenRecorder() {
-        bindService(new Intent(this, ScreenRecorderServiceImpl.class), screenRecorderServiceConnection,
-                Context.BIND_AUTO_CREATE);
-    }
-
-    private void requestMediaProjection() {
-        MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
-        Intent captureIntent = mediaProjectionManager.createScreenCaptureIntent();
-        startActivityForResult(captureIntent, CODE_REQUEST_MEDIA_PROJECTION);
-    }
-
-    private ServiceConnection screenRecorderServiceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            screenRecorderService = (IScreenRecorderService) service;
-            screenRecorderService.registerRecorderCallback(MainActivity.this);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            screenRecorderService = null;
-            screenRecorderServiceConnection = null;
-        }
-    };
 
     private void initDlna() {
         mDLNAPlayer = new DLNAPlayer(this);
@@ -352,7 +287,6 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
         };
 
         DLNAManager.getInstance().registerListener(mDLNARegistryListener);
-        initScreenRecorder();
     }
 
     /**
@@ -361,9 +295,11 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
     private void startPlay() {
         String sourceUrl = mMediaPath;
         final MediaInfo mediaInfo = new MediaInfo();
-        mediaInfo.setMediaId(Base64.encodeToString(sourceUrl.getBytes(), Base64.NO_WRAP));
+        if (!TextUtils.isEmpty(sourceUrl)) {
+            mediaInfo.setMediaId(Base64.encodeToString(sourceUrl.getBytes(), Base64.NO_WRAP));
+            mediaInfo.setUri(sourceUrl);
+        }
         mediaInfo.setMediaType(curItemType);
-        mediaInfo.setUri(sourceUrl);
         mDLNAPlayer.setDataSource(mediaInfo);
         mDLNAPlayer.start(new DLNAControlCallback() {
             @Override

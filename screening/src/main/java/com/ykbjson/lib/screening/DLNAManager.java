@@ -21,6 +21,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.view.ContextThemeWrapper;
 
+import com.ykbjson.lib.nginxserver.nginx.NginxHelper;
 import com.ykbjson.lib.screening.listener.DLNARegistryListener;
 import com.ykbjson.lib.screening.listener.DLNAStateCallback;
 import com.ykbjson.lib.screening.log.AndroidLoggingHandler;
@@ -49,7 +50,7 @@ import java.util.List;
  */
 public final class DLNAManager {
     private static final String TAG = "DLNAManager";
-    private static final String LOCAL_HTTP_SERVER_PORT = "9090";
+    private static final String LOCAL_HTTP_SERVER_PORT = "9578";
 
     private static boolean isDebugMode = false;
 
@@ -208,6 +209,8 @@ public final class DLNAManager {
             mContext = context;
         }
         mStateCallback = stateCallback;
+        //rtmp流媒体服务器
+        NginxHelper.installNginxServer(mContext);
         initLocalMediaServer();
         initConnection();
         registerBroadcastReceiver();
@@ -246,6 +249,10 @@ public final class DLNAManager {
     private void initLocalMediaServer() {
         checkConfig();
         try {
+            //rtmp流媒体服务器
+            NginxHelper.stopNginxServer();
+            NginxHelper.startNginxServer();
+            //本地普通多媒体服务器
             final PipedOutputStream pipedOutputStream = new PipedOutputStream();
             System.setIn(new PipedInputStream(pipedOutputStream));
             new Thread(() -> {

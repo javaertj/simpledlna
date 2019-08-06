@@ -8,6 +8,10 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode rootProject.ext.versionCode
         versionName rootProject.ext.versionName
+
+        ndk {
+            abiFilters "armeabi-v7a"
+        }
     }
 
     compileOptions {
@@ -26,6 +30,13 @@ android {
     packagingOptions {
         exclude 'META-INF/beans.xml'
     }
+
+    lintOptions {
+        abortOnError false
+        checkReleaseBuilds false
+        ignoreWarnings true
+        disable 'MissingTranslation'
+    }
 }
 
 dependencies {
@@ -35,5 +46,4 @@ dependencies {
     implementation "com.google.android.material:material:$rootProject.ext.materialVersion"
     implementation project(":simplepermission")
     implementation project(":screening")
-    implementation project(":screenrecorder")
 }

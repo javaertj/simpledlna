@@ -1,4 +1,3 @@
-
 package com.ykbjson.lib.screenrecorder;
 
 import android.media.MediaCodec;

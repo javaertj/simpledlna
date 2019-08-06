@@ -23,9 +23,9 @@ android {
 }
 
 dependencies {
-    api fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    api "androidx.appcompat:appcompat:$rootProject.ext.supportLibraryVersion"
+    implementation "androidx.appcompat:appcompat:$rootProject.ext.supportLibraryVersion"
     // Cling library
     api "org.fourthline.cling:cling-core:$rootProject.ext.clingVersion"
     api "org.fourthline.cling:cling-support:$rootProject.ext.clingVersion"
@@ -34,5 +34,6 @@ dependencies {
     api "org.eclipse.jetty:jetty-servlet:$rootProject.ext.jettyVersion"
     api "org.eclipse.jetty:jetty-client:$rootProject.ext.jettyVersion"
     api "org.slf4j:slf4j-simple:$rootProject.ext.slf4jVersion"
-    api project(':webserver')//本地投屏sdk
+    api project(':webserver')//本地文件映射的服务器
+    api project(":screenrecorder")//录屏服务
 }

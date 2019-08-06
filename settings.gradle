@@ -1,1 +1,1 @@
-include ':app', ':screening', ':webserver', ':simplepermission', ':screenrecorder'
+include ':app', ':screening', ':webserver', ':simplepermission', ':screenrecorder', ':rtmplibs', ':nginxserver'

@@ -1,4 +1,3 @@
-
 package com.ykbjson.lib.screenrecorder;
 
 import android.hardware.display.VirtualDisplay;
@@ -49,7 +48,7 @@ public class ScreenRecorder {
     private HandlerThread mWorker;
     private CallbackHandler mHandler;
 
-    private ICallback mCallback;
+    private IRecorderCallback mCallback;
     private LinkedList<Integer> mPendingVideoEncoderBufferIndices = new LinkedList<>();
     private LinkedList<Integer> mPendingAudioEncoderBufferIndices = new LinkedList<>();
     private LinkedList<MediaCodec.BufferInfo> mPendingAudioEncoderBufferInfos = new LinkedList<>();
@@ -59,10 +58,7 @@ public class ScreenRecorder {
      * @param display for {@link VirtualDisplay#setSurface(Surface)}
      * @param dstPath saving path
      */
-    ScreenRecorder(VideoEncodeConfig video,
-                   AudioEncodeConfig audio,
-                   VirtualDisplay display,
-                   String dstPath) {
+    ScreenRecorder(VideoEncodeConfig video, AudioEncodeConfig audio, VirtualDisplay display, String dstPath) {
         mVirtualDisplay = display;
         mDstPath = dstPath;
         mVideoEncoder = new VideoEncoder(video);
@@ -90,7 +86,7 @@ public class ScreenRecorder {
         mHandler.sendEmptyMessage(MSG_START);
     }
 
-    void setCallback(ICallback callback) {
+    void setCallback(IRecorderCallback callback) {
         mCallback = callback;
     }
 
@@ -185,9 +181,11 @@ public class ScreenRecorder {
             mPendingVideoEncoderBufferInfos.add(buffer);
             return;
         }
+
         ByteBuffer encodedData = mVideoEncoder.getOutputBuffer(index);
         writeSampleData(mVideoTrackIndex, buffer, encodedData);
         mVideoEncoder.releaseOutputBuffer(index);
+
         if ((buffer.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
             if (VERBOSE)
                 Log.d(TAG, "Stop encoder and muxer, since the buffer has been marked with EOS");
@@ -209,9 +207,11 @@ public class ScreenRecorder {
             return;
 
         }
+
         ByteBuffer encodedData = mAudioEncoder.getOutputBuffer(index);
         writeSampleData(mAudioTrackIndex, buffer, encodedData);
         mAudioEncoder.releaseOutputBuffer(index);
+
         if ((buffer.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
             if (VERBOSE)
                 Log.d(TAG, "Stop encoder and muxer, since the buffer has been marked with EOS");
@@ -251,6 +251,23 @@ public class ScreenRecorder {
         if (encodedData != null) {
             encodedData.position(buffer.offset);
             encodedData.limit(buffer.offset + buffer.size);
+            //推流
+            try {
+                if (null != mCallback && buffer.size != 0 && encodedData.remaining() > 0) {
+                    //see https://blog.csdn.net/sxf_123456/article/details/86520872
+                    int len = encodedData.limit() - encodedData.position();
+                    byte[] copyData = new byte[len];
+                    encodedData.get(copyData);
+                    if (track == mVideoTrackIndex) {
+                        mCallback.onMuxVideo(copyData, buffer.offset, buffer.size, buffer);
+                    } else if (track == mAudioTrackIndex) {
+                        mCallback.onMuxAudio(copyData, buffer.offset, buffer.size, buffer);
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            //存本地
             mMuxer.writeSampleData(track, encodedData, buffer);
             if (VERBOSE)
                 Log.i(TAG, "Sent " + buffer.size + " bytes to MediaMuxer on track " + track);
@@ -391,8 +408,6 @@ public class ScreenRecorder {
                 Log.e(TAG, "MicRecorder ran into an error! ", e);
                 Message.obtain(mHandler, MSG_ERROR, e).sendToTarget();
             }
-
-
         };
         micRecorder.setCallback(callback);
         micRecorder.prepare();
@@ -456,6 +471,14 @@ public class ScreenRecorder {
             mMuxer = null;
         }
         mHandler = null;
+    }
+
+    public VideoEncoder getVideoEncoder() {
+        return mVideoEncoder;
+    }
+
+    public MicRecorder getAudioEncoder() {
+        return mAudioEncoder;
     }
 
     @Override

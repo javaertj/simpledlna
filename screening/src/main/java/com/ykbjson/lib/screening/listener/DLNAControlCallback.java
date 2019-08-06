@@ -28,12 +28,14 @@ public interface DLNAControlCallback {
 
     int ERROR_CODE_NOT_READY = 6;
 
+    int ERROR_CODE_BIND_SCREEN_RECORDER_SERVICE_ERROR = 7;
+
 
     void onSuccess(@Nullable ActionInvocation invocation);
 
-    void onReceived(@Nullable ActionInvocation invocation,@Nullable Object ... extra);
+    void onReceived(@Nullable ActionInvocation invocation, @Nullable Object... extra);
 
     void onFailure(@Nullable ActionInvocation invocation,
-                   @IntRange(from = ERROR_CODE_NO_ERROR, to = ERROR_CODE_NOT_READY) int errorCode,
+                   @IntRange(from = ERROR_CODE_NO_ERROR, to = ERROR_CODE_BIND_SCREEN_RECORDER_SERVICE_ERROR) int errorCode,
                    @Nullable String errorMsg);
 }

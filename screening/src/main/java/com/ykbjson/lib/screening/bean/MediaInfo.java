@@ -12,6 +12,7 @@ public class MediaInfo {
     public static final int TYPE_IMAGE = 1;
     public static final int TYPE_VIDEO = 2;
     public static final int TYPE_AUDIO = 3;
+    public static final int TYPE_MIRROR = 4;
 
     private String mediaName;
     private String mediaId;

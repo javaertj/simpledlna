@@ -1,5 +1,3 @@
-
-
 package com.ykbjson.lib.screenrecorder;
 
 import android.media.MediaCodec;
@@ -54,5 +52,7 @@ class VideoEncoder extends BaseEncoder {
         super.release();
     }
 
-
+     VideoEncodeConfig getConfig() {
+        return mConfig;
+    }
 }

@@ -1,9 +1,9 @@
-// ICallback.aidl
+// IRecorderCallback.aidl
 //package com.ykbjson.lib.screenrecorder;
 //
 //// Declare any non-default types here with import statements
 //
-//interface ICallback {
+//interface IRecorderCallback {
 //
 //    void onStopRecord(in String error);
 //

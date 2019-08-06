@@ -18,7 +18,7 @@ import android.media.projection.MediaProjection;
  */
 public interface IScreenRecorderService {
 
-    void registerRecorderCallback(ICallback callback);
+    void registerRecorderCallback(IRecorderCallback callback);
 
     void prepareAndStartRecorder(MediaProjection mediaProjection, VideoEncodeConfig videoConfig,
                                  AudioEncodeConfig audioConfig);
@@ -32,6 +32,10 @@ public interface IScreenRecorderService {
     void destroyRecorder();
 
     String getSavingFilePath();
+
+    VideoEncodeConfig getVideoEncodeConfig();
+
+    AudioEncodeConfig getAudioEncodeConfig();
 
     boolean hasPrepared();
 }

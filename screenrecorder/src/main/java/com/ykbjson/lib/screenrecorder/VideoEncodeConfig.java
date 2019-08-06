@@ -1,10 +1,11 @@
-
 package com.ykbjson.lib.screenrecorder;
 
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
-import android.os.Parcel;
-import android.os.Parcelable;
+
+import androidx.annotation.NonNull;
+
+import static com.ykbjson.lib.screenrecorder.ScreenRecorder.VIDEO_AVC;
 
 
 /**
@@ -14,7 +15,7 @@ import android.os.Parcelable;
  * <BR/>
  * CreatedAt：2019-07-29
  */
-public class VideoEncodeConfig implements Parcelable {
+public class VideoEncodeConfig {
     final int width;
     final int height;
     final int bitrate;
@@ -25,6 +26,10 @@ public class VideoEncodeConfig implements Parcelable {
     final int codecProfile;
     final int codecProfileLevel;
 
+    private VideoEncodeConfig(Builder builder) {
+        this(builder.width, builder.height, builder.bitrate, builder.framerate, builder.iframeInterval,
+                builder.codecName, builder.mimeType, builder.codecProfile, builder.codecProfileLevel);
+    }
 
     public VideoEncodeConfig(int width, int height, int bitrate, int framerate, int iframeInterval,
                              String codecName, String mimeType, int codecProfile, int codecProfileLevel) {
@@ -39,29 +44,6 @@ public class VideoEncodeConfig implements Parcelable {
         this.codecProfileLevel = codecProfileLevel;
     }
 
-    protected VideoEncodeConfig(Parcel in) {
-        width = in.readInt();
-        height = in.readInt();
-        bitrate = in.readInt();
-        framerate = in.readInt();
-        iframeInterval = in.readInt();
-        codecName = in.readString();
-        mimeType = in.readString();
-        codecProfile = in.readInt();
-        codecProfileLevel = in.readInt();
-    }
-
-    public static final Creator<VideoEncodeConfig> CREATOR = new Creator<VideoEncodeConfig>() {
-        @Override
-        public VideoEncodeConfig createFromParcel(Parcel in) {
-            return new VideoEncodeConfig(in);
-        }
-
-        @Override
-        public VideoEncodeConfig[] newArray(int size) {
-            return new VideoEncodeConfig[size];
-        }
-    };
 
     MediaFormat toFormat() {
         MediaFormat format = MediaFormat.createVideoFormat(mimeType, width, height);
@@ -92,21 +74,95 @@ public class VideoEncodeConfig implements Parcelable {
                 '}';
     }
 
-    @Override
-    public int describeContents() {
-        return 0;
+    public int getWidth() {
+        return width;
     }
 
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
-        dest.writeInt(width);
-        dest.writeInt(height);
-        dest.writeInt(bitrate);
-        dest.writeInt(framerate);
-        dest.writeInt(iframeInterval);
-        dest.writeString(codecName);
-        dest.writeString(mimeType);
-        dest.writeInt(codecProfile);
-        dest.writeInt(codecProfileLevel);
+    public int getHeight() {
+        return height;
+    }
+
+    public static final class Builder {
+        private int width = 1080;
+        private int height = 1920;
+        private int bitrate = 25000 * 1000;
+        private int framerate = 60;
+        private int iframeInterval = 30;
+        private String codecName;
+        private String mimeType = VIDEO_AVC;
+        private int codecProfile;
+        private int codecProfileLevel;
+
+        public Builder() {
+            final MediaCodecInfo[] infos = Utils.getmAvcCodecInfos();
+            if (null != infos && infos.length > 0) {
+                codecName = infos[0].getName();
+                MediaCodecInfo.CodecCapabilities capabilities = infos[0].getCapabilitiesForType(VIDEO_AVC);
+                MediaCodecInfo.CodecProfileLevel[] profiles = capabilities.profileLevels;
+                if (profiles != null && profiles.length > 0) {
+                    codecProfile = profiles[0].profile;
+                    codecProfileLevel = profiles[0].level;
+                }
+            }
+        }
+
+        public static Builder create() {
+            return new Builder();
+        }
+
+        public Builder width(int width) {
+            this.width = width;
+            return this;
+        }
+
+        public Builder height(int height) {
+            this.height = height;
+            return this;
+        }
+
+        public Builder bitrate(int bitrate) {
+            this.bitrate = bitrate;
+            return this;
+        }
+
+        public Builder framerate(int framerate) {
+            this.framerate = framerate;
+            return this;
+        }
+
+        public Builder iframeInterval(int iframeInterval) {
+            this.iframeInterval = iframeInterval;
+            return this;
+        }
+
+        public Builder codecName(@NonNull String codecName) {
+            this.codecName = codecName;
+            return this;
+        }
+
+        public Builder mimeType(@NonNull String mimeType) {
+            this.mimeType = mimeType;
+            return this;
+        }
+
+        public Builder codecProfile(int codecProfile) {
+            this.codecProfile = codecProfile;
+            return this;
+        }
+
+        public Builder codecProfileLevel(int codecProfileLevel) {
+            this.codecProfileLevel = codecProfileLevel;
+            return this;
+        }
+
+        public Builder codecProfile(@NonNull MediaCodecInfo.CodecProfileLevel codecProfile) {
+            this.codecProfile = codecProfile.profile;
+            this.codecProfileLevel = codecProfile.level;
+            return this;
+        }
+
+        public VideoEncodeConfig build() {
+            return new VideoEncodeConfig(this);
+        }
     }
 }

@@ -1,5 +1,3 @@
-
-
 package com.ykbjson.lib.screenrecorder;
 
 import android.media.MediaFormat;
@@ -25,4 +23,7 @@ class AudioEncoder extends BaseEncoder {
         return mConfig.toFormat();
     }
 
+    AudioEncodeConfig getConfig() {
+        return mConfig;
+    }
 }

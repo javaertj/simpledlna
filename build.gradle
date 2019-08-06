@@ -7,6 +7,9 @@ buildscript {
         maven {
             url 'http://4thline.org/m2'
         }
+        maven {
+            url "https://jitpack.io"
+        }
 
     }
     dependencies {
@@ -23,6 +26,9 @@ allprojects {
         jcenter()
         maven {
             url 'http://4thline.org/m2'
+        }
+        maven {
+            url "https://jitpack.io"
         }
 
     }
