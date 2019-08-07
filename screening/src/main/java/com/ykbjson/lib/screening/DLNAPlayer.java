@@ -579,7 +579,6 @@ public class DLNAPlayer implements OnRequestMediaProjectionResultCallback, IReco
     }
 
     //--------------------------mirror-----------------------------------------------------------------
-
     private IScreenRecorderService mScreenRecorderService;
     private DLNAControlCallback mMirrorControlCallback;
     private IMuxer mStreamMuxer;
@@ -652,10 +651,11 @@ public class DLNAPlayer implements OnRequestMediaProjectionResultCallback, IReco
                         .setWidth(mScreenRecorderService.getVideoEncodeConfig().getWidth())
                         .createStreamPublisherParam();
         String[] pathArray = mScreenRecorderService.getSavingFilePath().split("\\.");
-        videoStreamPublisherParam.outputFilePath = mScreenRecorderService.getSavingFilePath().replace(pathArray[pathArray.length - 1],
-                "flv");
-        videoStreamPublisherParam.outputUrl = NginxHelper.getRtmpLiveServerUrl() + "mirror";
-        new Thread(() -> mStreamMuxer.open(videoStreamPublisherParam)).start();
+        videoStreamPublisherParam.outputFilePath = mScreenRecorderService.getSavingFilePath()
+                .replace(pathArray[pathArray.length - 1], "flv");
+        videoStreamPublisherParam.outputUrl = "rtmp://" + DLNAManager.getLocalIpStr(mContext)  +
+                NginxHelper.getRtmpLiveServerConfig() + "mirror";
+        mStreamMuxer.open(videoStreamPublisherParam);
     }
 
     @Override

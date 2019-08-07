@@ -5,6 +5,8 @@ import android.media.MediaFormat;
 
 import androidx.annotation.NonNull;
 
+import java.io.Serializable;
+
 import static com.ykbjson.lib.screenrecorder.ScreenRecorder.VIDEO_AVC;
 
 
@@ -15,7 +17,7 @@ import static com.ykbjson.lib.screenrecorder.ScreenRecorder.VIDEO_AVC;
  * <BR/>
  * CreatedAt：2019-07-29
  */
-public class VideoEncodeConfig {
+public class VideoEncodeConfig implements Serializable {
     final int width;
     final int height;
     final int bitrate;
@@ -83,8 +85,8 @@ public class VideoEncodeConfig {
     }
 
     public static final class Builder {
-        private int width = 1080;
-        private int height = 1920;
+        private int width = 144;
+        private int height = 176;
         private int bitrate = 25000 * 1000;
         private int framerate = 60;
         private int iframeInterval = 30;

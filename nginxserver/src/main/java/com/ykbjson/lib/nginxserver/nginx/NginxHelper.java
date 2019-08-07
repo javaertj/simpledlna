@@ -111,11 +111,11 @@ public class NginxHelper {
         }
     }
 
-    public static String getRtmpLiveServerUrl() {
-        return "rtmp://localhost:9577/live/";
+    public static String getRtmpLiveServerConfig() {
+        return ":9577/live/";
     }
 
-    public static String getHttpServerUrl() {
-        return "http://localhost:9572/";
+    public static String getHttpServerConfig() {
+        return ":9572/";
     }
 }

@@ -7,6 +7,6 @@ package com.ykbjson.lib.screenrecorder;
  * <BR/>
  * CreatedAt：2019-07-31
  */
-interface IScreenRecorderServiceBinder extends IScreenRecorderService {
+interface IScreenRecorderServiceProxy extends IScreenRecorderService {
     IScreenRecorderService get();
 }

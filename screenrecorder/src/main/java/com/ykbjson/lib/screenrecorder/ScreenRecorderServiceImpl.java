@@ -13,9 +13,13 @@ import android.hardware.display.VirtualDisplay;
 import android.media.MediaCodecInfo;
 import android.media.projection.MediaProjection;
 import android.os.Binder;
+import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -39,47 +43,65 @@ import static com.ykbjson.lib.screenrecorder.ScreenRecorder.VIDEO_AVC;
  * CreatedAt：2019-07-30
  */
 public class ScreenRecorderServiceImpl extends Service {
+
     private static final String TAG = "ScreenRecorderService";
 
-    private ScreenRecorderService mScreenRecorderService;
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        if (null != mScreenRecorderService) {
-            mScreenRecorderService.onConfigurationChanged(newConfig);
-        }
-    }
+    private ScreenRecorderServiceProxy mScreenRecorderServiceProxy;
 
     @Override
     public void onCreate() {
-        super.onCreate();
         Loggers.DEBUG = BuildConfig.DEBUG;
-        mScreenRecorderService = new ScreenRecorderService();
+        super.onCreate();
+        mScreenRecorderServiceProxy = getScreenRecorderServiceProxy(this);
     }
 
     @Nullable
     @Override
     public final IBinder onBind(Intent intent) {
-        return new ScreenRecorderServiceBinder();
+        return mScreenRecorderServiceProxy;
     }
 
     @Override
     public void onDestroy() {
-        mScreenRecorderService.destroyRecorder();
+        if (null != mScreenRecorderServiceProxy) {
+            mScreenRecorderServiceProxy.destroyRecorder();
+        }
         super.onDestroy();
     }
 
-    protected class ScreenRecorderService implements IScreenRecorderService {
+    /**
+     * 重写用来自定义扩展
+     *
+     * @param context
+     * @return
+     */
+    ScreenRecorderServiceProxy getScreenRecorderServiceProxy(Context context) {
+        return new ScreenRecorderServiceProxy(context);
+    }
+
+    static class ScreenRecorderService implements IScreenRecorderService {
+        static final int MSG_PREPARE_RECORDER = 1;
+        static final int MSG_START_RECORDER = MSG_PREPARE_RECORDER + 1;
+        static final int MSG_STOP_RECORDER = MSG_PREPARE_RECORDER + 2;
+        static final int MSG_DESTROY_RECORDER = MSG_PREPARE_RECORDER + 3;
+
+        static final String KEY_AUDDIO_CONFIG = "audioConfig";
+        static final String KEY_VIDEO_CONFIG = "videoConfig";
 
         MediaProjection mMediaProjection;
         ScreenRecorder mScreenRecorder;
         VirtualDisplay mVirtualDisplay;
         boolean mIsLandscape;
         IRecorderCallback mCallback;
+        WorkHandler mHandler;
+        Context mContext;
 
-        ScreenRecorderService() {
+        ScreenRecorderService(Context context) {
+            mContext = context;
             Utils.initMediaCodecInfo();
+            HandlerThread handlerThread = new HandlerThread("ScreenRecorderService_" + System.currentTimeMillis());
+            handlerThread.start();
+            mHandler = new WorkHandler(this, handlerThread.getLooper());
         }
 
         @Override
@@ -96,12 +118,28 @@ public class ScreenRecorderServiceImpl extends Service {
                 return;
             }
             mMediaProjection = mediaProjection;
+            final Bundle extra = new Bundle();
+            extra.putSerializable(KEY_AUDDIO_CONFIG, audioConfig);
+            extra.putSerializable(KEY_VIDEO_CONFIG, videoConfig);
+            mHandler.obtainMessage(MSG_PREPARE_RECORDER, extra).sendToTarget();
+        }
+
+        void handlePrepareAndStartRecorder(Bundle extra) {
             mMediaProjection.registerCallback(mProjectionCallback, new Handler());
-            startRecorder(videoConfig, audioConfig);
+            handleStartRecorder(extra);
         }
 
         @Override
         public void startRecorder(VideoEncodeConfig videoConfig, AudioEncodeConfig audioConfig) {
+            final Bundle extra = new Bundle();
+            extra.putSerializable(KEY_AUDDIO_CONFIG, audioConfig);
+            extra.putSerializable(KEY_VIDEO_CONFIG, videoConfig);
+            mHandler.obtainMessage(MSG_START_RECORDER, extra).sendToTarget();
+        }
+
+        void handleStartRecorder(Bundle extra) {
+            final AudioEncodeConfig audioConfig = (AudioEncodeConfig) extra.getSerializable(KEY_AUDDIO_CONFIG);
+            final VideoEncodeConfig videoConfig = (VideoEncodeConfig) extra.getSerializable(KEY_VIDEO_CONFIG);
             prepareScreenRecorder(mMediaProjection, videoConfig, audioConfig);
             if (null == mScreenRecorder) {
                 Log.e(TAG, "startRecorder,ScreenRecorder has not been initialized yet");
@@ -110,7 +148,7 @@ public class ScreenRecorderServiceImpl extends Service {
             if (null != mCallback) {
                 mCallback.onPrepareRecorder();
             }
-            registerReceiver(mStopActionReceiver, new IntentFilter(Notifications.ACTION_STOP));
+            mContext.registerReceiver(mStopActionReceiver, new IntentFilter(Notifications.ACTION_STOP));
             mScreenRecorder.start();
         }
 
@@ -121,8 +159,12 @@ public class ScreenRecorderServiceImpl extends Service {
 
         @Override
         public void stopRecorder() {
+            mHandler.sendEmptyMessage(MSG_STOP_RECORDER);
+        }
+
+        void handleStopRecorder() {
             try {
-                unregisterReceiver(mStopActionReceiver);
+                mContext.unregisterReceiver(mStopActionReceiver);
             } catch (Exception e) {
                 //ignored
             }
@@ -137,7 +179,11 @@ public class ScreenRecorderServiceImpl extends Service {
 
         @Override
         public void destroyRecorder() {
-            stopRecorder();
+            mHandler.sendEmptyMessage(MSG_DESTROY_RECORDER);
+        }
+
+        void handleDestroyRecorder() {
+            handleStopRecorder();
             if (mVirtualDisplay != null) {
                 mVirtualDisplay.setSurface(null);
                 mVirtualDisplay.release();
@@ -182,12 +228,11 @@ public class ScreenRecorderServiceImpl extends Service {
             return null != mMediaProjection;
         }
 
-
-        private void onConfigurationChanged(Configuration newConfig) {
+        void onConfigurationChanged(Configuration newConfig) {
             mIsLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE;
         }
 
-        private void prepareScreenRecorder(MediaProjection mediaProjection, VideoEncodeConfig video, AudioEncodeConfig audio) {
+        void prepareScreenRecorder(MediaProjection mediaProjection, VideoEncodeConfig video, AudioEncodeConfig audio) {
             if (mediaProjection == null) {
                 Log.e(TAG, "prepareScreenRecorder,media projection is null");
                 return;
@@ -223,8 +268,8 @@ public class ScreenRecorderServiceImpl extends Service {
         }
 
 
-        private ScreenRecorder newRecorder(MediaProjection mediaProjection, VideoEncodeConfig video,
-                                           AudioEncodeConfig audio, File output) {
+        ScreenRecorder newRecorder(MediaProjection mediaProjection, VideoEncodeConfig video,
+                                   AudioEncodeConfig audio, File output) {
             final VirtualDisplay display = getOrCreateVirtualDisplay(mediaProjection, video);
             ScreenRecorder r = new ScreenRecorder(video, audio, display, output.getAbsolutePath());
             r.setCallback(mCallback);
@@ -232,7 +277,7 @@ public class ScreenRecorderServiceImpl extends Service {
         }
 
 
-        private VirtualDisplay getOrCreateVirtualDisplay(MediaProjection mediaProjection, VideoEncodeConfig config) {
+        VirtualDisplay getOrCreateVirtualDisplay(MediaProjection mediaProjection, VideoEncodeConfig config) {
             if (mVirtualDisplay == null) {
                 mVirtualDisplay = mediaProjection.createVirtualDisplay("ScreenRecorder-display0",
                         config.width, config.height, 1 /*dpi*/,
@@ -250,15 +295,15 @@ public class ScreenRecorderServiceImpl extends Service {
         }
 
 
-        private boolean hasPermissions() {
-            PackageManager pm = getPackageManager();
-            String packageName = getPackageName();
+        boolean hasPermissions() {
+            PackageManager pm = mContext.getPackageManager();
+            String packageName = mContext.getPackageName();
             int granted = pm.checkPermission(RECORD_AUDIO, packageName) | pm.checkPermission(WRITE_EXTERNAL_STORAGE, packageName);
             return granted == PackageManager.PERMISSION_GRANTED;
         }
 
 
-        private MediaCodecInfo getVideoCodecInfo(String codecName) {
+        MediaCodecInfo getVideoCodecInfo(String codecName) {
             if (codecName == null) return null;
             final MediaCodecInfo[] infos = Utils.getmAvcCodecInfos();
             MediaCodecInfo codec = null;
@@ -271,14 +316,14 @@ public class ScreenRecorderServiceImpl extends Service {
             return codec;
         }
 
-        private final MediaProjection.Callback mProjectionCallback = new MediaProjection.Callback() {
+        MediaProjection.Callback mProjectionCallback = new MediaProjection.Callback() {
             @Override
             public void onStop() {
                 stopRecorder();
             }
         };
 
-        private final BroadcastReceiver mStopActionReceiver = new BroadcastReceiver() {
+        BroadcastReceiver mStopActionReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (Notifications.ACTION_STOP.equals(intent.getAction())) {
@@ -286,9 +331,61 @@ public class ScreenRecorderServiceImpl extends Service {
                 }
             }
         };
+
+        static class WorkHandler extends Handler {
+            private ScreenRecorderService mService;
+
+            WorkHandler(ScreenRecorderService service, Looper looper) {
+                super(looper);
+                mService = service;
+            }
+
+            @Override
+            public void handleMessage(Message msg) {
+                super.handleMessage(msg);
+
+                switch (msg.what) {
+                    case MSG_PREPARE_RECORDER:
+                        mService.handlePrepareAndStartRecorder((Bundle) msg.obj);
+                        break;
+
+                    case MSG_START_RECORDER:
+                        mService.handleStartRecorder((Bundle) msg.obj);
+                        break;
+
+                    case MSG_STOP_RECORDER:
+                        mService.handleStopRecorder();
+                        break;
+
+                    case MSG_DESTROY_RECORDER:
+                        mService.handleDestroyRecorder();
+                        break;
+
+                    default:
+                        break;
+
+                }
+            }
+        }
     }
 
-    class ScreenRecorderServiceBinder extends Binder implements IScreenRecorderServiceBinder {
+    static class ScreenRecorderServiceProxy extends Binder implements IScreenRecorderServiceProxy {
+
+        IScreenRecorderService mScreenRecorderService;
+
+        ScreenRecorderServiceProxy(Context context) {
+            mScreenRecorderService = getScreenRecorderService(context);
+        }
+
+        /**
+         * 重写用来自定义扩展
+         *
+         * @param context
+         * @return
+         */
+        IScreenRecorderService getScreenRecorderService(Context context) {
+            return new ScreenRecorderService(context);
+        }
 
         @Override
         public IScreenRecorderService get() {

@@ -5,6 +5,7 @@ import android.media.MediaFormat;
 
 import androidx.annotation.NonNull;
 
+import java.io.Serializable;
 import java.util.Objects;
 
 import static com.ykbjson.lib.screenrecorder.ScreenRecorder.AUDIO_AAC;
@@ -16,7 +17,7 @@ import static com.ykbjson.lib.screenrecorder.ScreenRecorder.AUDIO_AAC;
  * <BR/>
  * CreatedAt：2019-07-29
  */
-public class AudioEncodeConfig {
+public class AudioEncodeConfig implements Serializable {
     final String codecName;
     final String mimeType;
     final int bitRate;
