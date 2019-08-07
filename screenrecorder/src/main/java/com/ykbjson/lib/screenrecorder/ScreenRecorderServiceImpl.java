@@ -194,6 +194,11 @@ public class ScreenRecorderServiceImpl extends Service {
                 mMediaProjection.stop();
                 mMediaProjection = null;
             }
+            if (null != mHandler) {
+                mHandler.removeCallbacksAndMessages(null);
+                mHandler.getLooper().quitSafely();
+                mHandler = null;
+            }
         }
 
         @Override
