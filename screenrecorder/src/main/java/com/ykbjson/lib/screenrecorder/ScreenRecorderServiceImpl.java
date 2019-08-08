@@ -85,7 +85,7 @@ public class ScreenRecorderServiceImpl extends Service {
         static final int MSG_STOP_RECORDER = MSG_PREPARE_RECORDER + 2;
         static final int MSG_DESTROY_RECORDER = MSG_PREPARE_RECORDER + 3;
 
-        static final String KEY_AUDDIO_CONFIG = "audioConfig";
+        static final String KEY_AUDIO_CONFIG = "audioConfig";
         static final String KEY_VIDEO_CONFIG = "videoConfig";
 
         MediaProjection mMediaProjection;
@@ -119,7 +119,7 @@ public class ScreenRecorderServiceImpl extends Service {
             }
             mMediaProjection = mediaProjection;
             final Bundle extra = new Bundle();
-            extra.putSerializable(KEY_AUDDIO_CONFIG, audioConfig);
+            extra.putSerializable(KEY_AUDIO_CONFIG, audioConfig);
             extra.putSerializable(KEY_VIDEO_CONFIG, videoConfig);
             mHandler.obtainMessage(MSG_PREPARE_RECORDER, extra).sendToTarget();
         }
@@ -132,13 +132,13 @@ public class ScreenRecorderServiceImpl extends Service {
         @Override
         public void startRecorder(VideoEncodeConfig videoConfig, AudioEncodeConfig audioConfig) {
             final Bundle extra = new Bundle();
-            extra.putSerializable(KEY_AUDDIO_CONFIG, audioConfig);
+            extra.putSerializable(KEY_AUDIO_CONFIG, audioConfig);
             extra.putSerializable(KEY_VIDEO_CONFIG, videoConfig);
             mHandler.obtainMessage(MSG_START_RECORDER, extra).sendToTarget();
         }
 
         void handleStartRecorder(Bundle extra) {
-            final AudioEncodeConfig audioConfig = (AudioEncodeConfig) extra.getSerializable(KEY_AUDDIO_CONFIG);
+            final AudioEncodeConfig audioConfig = (AudioEncodeConfig) extra.getSerializable(KEY_AUDIO_CONFIG);
             final VideoEncodeConfig videoConfig = (VideoEncodeConfig) extra.getSerializable(KEY_VIDEO_CONFIG);
             prepareScreenRecorder(mMediaProjection, videoConfig, audioConfig);
             if (null == mScreenRecorder) {
