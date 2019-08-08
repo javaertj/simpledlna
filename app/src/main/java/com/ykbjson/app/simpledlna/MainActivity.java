@@ -250,24 +250,8 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
 
     @Override
     protected void onDestroy() {
-        if (mDLNAPlayer!=null) {
-            mDLNAPlayer.stop(new DLNAControlCallback() {
-                @Override
-                public void onSuccess(@Nullable ActionInvocation invocation) {
-
-                }
-
-                @Override
-                public void onReceived(@Nullable ActionInvocation invocation, @Nullable Object... extra) {
-
-                }
-
-                @Override
-                public void onFailure(@Nullable ActionInvocation invocation, int errorCode, @Nullable String errorMsg) {
-
-                }
-            });
-            mDLNAPlayer.disconnect();
+        if (mDLNAPlayer != null) {
+            mDLNAPlayer.destroy();
         }
         DLNAManager.getInstance().unregisterListener(mDLNARegistryListener);
         DLNAManager.getInstance().destroy();

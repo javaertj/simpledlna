@@ -57,10 +57,8 @@ public class RequestMediaProjectionActivity extends AppCompatActivity {
 
             MediaProjection mediaProjection = mMediaProjectionManager.getMediaProjection(resultCode, data);
             if (null == mediaProjection) {
-                Toast.makeText(this, "你拒绝了获取MediaProjection的服务", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (null != resultCallback) {
+                Toast.makeText(this, "你拒绝了录屏操作！", Toast.LENGTH_SHORT).show();
+            } else if (null != resultCallback) {
                 resultCallback.onMediaProjectionResult(mediaProjection);
             }
             finish();

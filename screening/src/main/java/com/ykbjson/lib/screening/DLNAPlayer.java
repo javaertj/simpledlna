@@ -63,7 +63,7 @@ import java.util.Date;
  * <BR/>
  * CreatedAt：2019-07-09
  */
-public class DLNAPlayer implements OnRequestMediaProjectionResultCallback, IRecorderCallback {
+public class DLNAPlayer {
 
     private static final String DIDL_LITE_FOOTER = "</DIDL-Lite>";
     private static final String DIDL_LITE_HEADER = "<?xml version=\"1.0\" encoding=\"utf-8\" standalone=\"no\"?>"
@@ -122,8 +122,6 @@ public class DLNAPlayer implements OnRequestMediaProjectionResultCallback, IReco
      */
     private ServiceType AV_TRANSPORT_SERVICE;
     private ServiceType RENDERING_CONTROL_SERVICE;
-
-    private MediaProjection mMediaProjection;
 
     public DLNAPlayer(@NonNull Context context) {
         mContext = context;
@@ -194,15 +192,18 @@ public class DLNAPlayer implements OnRequestMediaProjectionResultCallback, IReco
     public void disconnect() {
         checkConfig();
         try {
-            mContext.unbindService(mServiceConnection);
+            if (null != mUpnpService && null != mServiceConnection) {
+                mContext.unbindService(mServiceConnection);
+            }
         } catch (Exception e) {
-            DLNAManager.logE("DLNAPlayer disconnect error.", e);
+            DLNAManager.logE("DLNAPlayer disconnect UPnpService error.", e);
         }
+
     }
 
     private void checkPrepared() {
         if (null == mUpnpService) {
-            throw new IllegalStateException("Invalid AndroidUpnpService");
+            throw new IllegalStateException("Invalid AndroidUPnpService");
         }
     }
 
@@ -578,123 +579,144 @@ public class DLNAPlayer implements OnRequestMediaProjectionResultCallback, IReco
         return false;
     }
 
-    //--------------------------mirror-----------------------------------------------------------------
+    public void destroy() {
+        stopMirror();
+        try {
+            if (null != mScreenRecorderService && null != mScreenRecorderServiceConnection) {
+                mContext.unbindService(mScreenRecorderServiceConnection);
+            }
+        } catch (Exception e) {
+            DLNAManager.logE("DLNAPlayer disconnect RecorderService error.", e);
+        }
+        disconnect();
+    }
+
+    //-------------------------------------------mirror-------------------------------------------------
+
     private IScreenRecorderService mScreenRecorderService;
     private DLNAControlCallback mMirrorControlCallback;
     private IMuxer mStreamMuxer;
     private Notifications mNotifications;
-    private long startTime = 0;
+    private long mNotificationStartTime = 0;
 
-    private ServiceConnection screenRecorderServiceConnection = new ServiceConnection() {
+    private ServiceConnection mScreenRecorderServiceConnection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             mScreenRecorderService = (IScreenRecorderService) service;
-            mScreenRecorderService.registerRecorderCallback(DLNAPlayer.this);
-            RequestMediaProjectionActivity.resultCallback = DLNAPlayer.this;
-            RequestMediaProjectionActivity.start(mContext);
+            prepareMediaProjection();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             mScreenRecorderService = null;
-            screenRecorderServiceConnection = null;
+            mScreenRecorderServiceConnection = null;
+        }
+    };
+
+    private void prepareMediaProjection() {
+        if (null != mScreenRecorderService) {
+            mScreenRecorderService.registerRecorderCallback(mRecorderCallback);
+            RequestMediaProjectionActivity.resultCallback = mRequestMediaProjectionResultCallback;
+            RequestMediaProjectionActivity.start(mContext);
+        }
+    }
+
+    private IRecorderCallback mRecorderCallback = new IRecorderCallback() {
+        @Override
+        public void onPrepareRecorder() {
+            mStreamMuxer = new RTMPStreamMuxer();
+            StreamPublisher.StreamPublisherParam videoStreamPublisherParam =
+                    new StreamPublisher.StreamPublisherParam.Builder()
+                            .setHeight(mScreenRecorderService.getVideoEncodeConfig().getHeight())
+                            .setWidth(mScreenRecorderService.getVideoEncodeConfig().getWidth())
+                            .createStreamPublisherParam();
+            String[] pathArray = mScreenRecorderService.getSavingFilePath().split("\\.");
+            videoStreamPublisherParam.outputFilePath = mScreenRecorderService.getSavingFilePath()
+                    .replace(pathArray[pathArray.length - 1], "flv");
+            videoStreamPublisherParam.outputUrl = "rtmp://" + DLNAManager.getLocalIpStr(mContext) +
+                    NginxHelper.getRtmpLiveServerConfig() + "mirror";
+            mStreamMuxer.open(videoStreamPublisherParam);
+        }
+
+        @Override
+        public void onStartRecord() {
+            String sourceUrl = mStreamMuxer.getMediaPath();
+            final MediaInfo mediaInfo = new MediaInfo();
+            mediaInfo.setMediaId(Base64.encodeToString(sourceUrl.getBytes(), Base64.NO_WRAP));
+            mediaInfo.setMediaType(MediaInfo.TYPE_VIDEO);
+            mediaInfo.setUri(sourceUrl);
+            setDataSource(mediaInfo);
+            start(mMirrorControlCallback);
+        }
+
+        @Override
+        public void onRecording(long presentationTimeUs) {
+            if (mNotificationStartTime <= 0) {
+                mNotificationStartTime = presentationTimeUs;
+            }
+            long time = (presentationTimeUs - mNotificationStartTime) / 1000;
+            mNotifications.recording(time);
+        }
+
+        @Override
+        public void onStopRecord(Throwable error) {
+            mNotificationStartTime = 0;
+            mNotifications.clear();
+        }
+
+        @Override
+        public void onMuxAudio(byte[] buffer, int offset, int length, MediaCodec.BufferInfo bufferInfo) {
+            if (null != mStreamMuxer) {
+                mStreamMuxer.writeAudio(buffer, offset, length, bufferInfo);
+            }
+        }
+
+        @Override
+        public void onMuxVideo(byte[] buffer, int offset, int length, MediaCodec.BufferInfo bufferInfo) {
+            if (null != mStreamMuxer) {
+                mStreamMuxer.writeVideo(buffer, offset, length, bufferInfo);
+            }
+        }
+    };
+
+    private OnRequestMediaProjectionResultCallback mRequestMediaProjectionResultCallback = new OnRequestMediaProjectionResultCallback() {
+        @Override
+        public void onMediaProjectionResult(MediaProjection mediaProjection) {
+            if (null != mScreenRecorderService) {
+                mScreenRecorderService.prepareAndStartRecorder(mediaProjection, null, null);
+            } else {
+                if (null != mMirrorControlCallback) {
+                    mMirrorControlCallback.onFailure(null,
+                            DLNAControlCallback.ERROR_CODE_BIND_SCREEN_RECORDER_SERVICE_ERROR, "");
+                }
+            }
         }
     };
 
     private void startMirror(final @NonNull DLNAControlCallback callback) {
+        checkConfig();
         stopMirror();
         if (null == mNotifications) {
             mNotifications = new Notifications(mContext);
         }
         mMirrorControlCallback = callback;
-        mContext.bindService(new Intent(mContext, ScreenRecorderServiceImpl.class), screenRecorderServiceConnection,
-                Context.BIND_AUTO_CREATE);
+        if (null == mScreenRecorderService) {
+            mContext.bindService(new Intent(mContext, ScreenRecorderServiceImpl.class), mScreenRecorderServiceConnection,
+                    Context.BIND_AUTO_CREATE);
+        } else {
+            prepareMediaProjection();
+        }
     }
 
     private void stopMirror() {
+        mMirrorControlCallback = null;
         if (null != mScreenRecorderService) {
-            mScreenRecorderService.destroyRecorder();
-        }
-        try {
-            if (null != screenRecorderServiceConnection) {
-                mContext.unbindService(screenRecorderServiceConnection);
-            }
-        } catch (Exception e) {
-            //ignored
+            mScreenRecorderService.stopRecorder();
         }
 
         if (null != mStreamMuxer) {
             mStreamMuxer.close();
             mStreamMuxer = null;
-        }
-    }
-
-    @Override
-    public void onMediaProjectionResult(MediaProjection mediaProjection) {
-        mMediaProjection = mediaProjection;
-        if (null != mScreenRecorderService) {
-            mScreenRecorderService.prepareAndStartRecorder(mediaProjection, null, null);
-        } else {
-            if (null != mMirrorControlCallback) {
-                mMirrorControlCallback.onFailure(null,
-                        DLNAControlCallback.ERROR_CODE_BIND_SCREEN_RECORDER_SERVICE_ERROR, "");
-            }
-        }
-    }
-
-    @Override
-    public void onPrepareRecorder() {
-        mStreamMuxer = new RTMPStreamMuxer();
-        StreamPublisher.StreamPublisherParam videoStreamPublisherParam =
-                new StreamPublisher.StreamPublisherParam.Builder()
-                        .setHeight(mScreenRecorderService.getVideoEncodeConfig().getHeight())
-                        .setWidth(mScreenRecorderService.getVideoEncodeConfig().getWidth())
-                        .createStreamPublisherParam();
-        String[] pathArray = mScreenRecorderService.getSavingFilePath().split("\\.");
-        videoStreamPublisherParam.outputFilePath = mScreenRecorderService.getSavingFilePath()
-                .replace(pathArray[pathArray.length - 1], "flv");
-        videoStreamPublisherParam.outputUrl = "rtmp://" + DLNAManager.getLocalIpStr(mContext)  +
-                NginxHelper.getRtmpLiveServerConfig() + "mirror";
-        mStreamMuxer.open(videoStreamPublisherParam);
-    }
-
-    @Override
-    public void onStartRecord() {
-        String sourceUrl = mStreamMuxer.getMediaPath();
-        final MediaInfo mediaInfo = new MediaInfo();
-        mediaInfo.setMediaId(Base64.encodeToString(sourceUrl.getBytes(), Base64.NO_WRAP));
-        mediaInfo.setMediaType(MediaInfo.TYPE_VIDEO);
-        mediaInfo.setUri(sourceUrl);
-        setDataSource(mediaInfo);
-        start(mMirrorControlCallback);
-    }
-
-    @Override
-    public void onRecording(long presentationTimeUs) {
-        if (startTime <= 0) {
-            startTime = presentationTimeUs;
-        }
-        long time = (presentationTimeUs - startTime) / 1000;
-        mNotifications.recording(time);
-    }
-
-    @Override
-    public void onStopRecord(Throwable error) {
-        startTime = 0;
-        mNotifications.clear();
-    }
-
-    @Override
-    public void onMuxAudio(byte[] buffer, int offset, int length, MediaCodec.BufferInfo bufferInfo) {
-        if (null != mStreamMuxer) {
-            mStreamMuxer.writeAudio(buffer, offset, length, bufferInfo);
-        }
-    }
-
-    @Override
-    public void onMuxVideo(byte[] buffer, int offset, int length, MediaCodec.BufferInfo bufferInfo) {
-        if (null != mStreamMuxer) {
-            mStreamMuxer.writeVideo(buffer, offset, length, bufferInfo);
         }
     }
 }
