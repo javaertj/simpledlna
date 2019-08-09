@@ -1,8 +1,10 @@
 package com.ykbjson.lib.screening;
 
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.media.MediaCodec;
 import android.media.projection.MediaProjection;
@@ -273,7 +275,6 @@ public class DLNAPlayer {
 
 
     public void stop(@NonNull DLNAControlCallback callback) {
-        stopMirror();
         final Service avtService = mDevice.findService(AV_TRANSPORT_SERVICE);
         if (checkErrorBeforeExecute(STOP, avtService, callback)) {
             return;
@@ -580,6 +581,7 @@ public class DLNAPlayer {
     }
 
     public void destroy() {
+        checkConfig();
         stopMirror();
         try {
             if (null != mScreenRecorderService && null != mScreenRecorderServiceConnection) {
@@ -640,6 +642,8 @@ public class DLNAPlayer {
 
         @Override
         public void onStartRecord() {
+            mContext.registerReceiver(mStopActionReceiver, new IntentFilter(Notifications.ACTION_STOP));
+
             String sourceUrl = mStreamMuxer.getMediaPath();
             final MediaInfo mediaInfo = new MediaInfo();
             mediaInfo.setMediaId(Base64.encodeToString(sourceUrl.getBytes(), Base64.NO_WRAP));
@@ -647,6 +651,11 @@ public class DLNAPlayer {
             mediaInfo.setUri(sourceUrl);
             setDataSource(mediaInfo);
             start(mMirrorControlCallback);
+
+            if (null == mNotifications) {
+                mNotifications = new Notifications(mContext);
+            }
+            mNotifications.recording(0);
         }
 
         @Override
@@ -666,7 +675,7 @@ public class DLNAPlayer {
 
         @Override
         public void onDestroyRecorder() {
-
+            mNotifications = null;
         }
 
         @Override
@@ -698,12 +707,17 @@ public class DLNAPlayer {
         }
     };
 
+    private BroadcastReceiver mStopActionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (Notifications.ACTION_STOP.equals(intent.getAction())) {
+                stopMirror();
+            }
+        }
+    };
+
     private void startMirror(final @NonNull DLNAControlCallback callback) {
         checkConfig();
-        stopMirror();
-        if (null == mNotifications) {
-            mNotifications = new Notifications(mContext);
-        }
         mMirrorControlCallback = callback;
         if (null == mScreenRecorderService) {
             mContext.bindService(new Intent(mContext, ScreenRecorderServiceImpl.class), mScreenRecorderServiceConnection,
@@ -715,10 +729,14 @@ public class DLNAPlayer {
 
     private void stopMirror() {
         mMirrorControlCallback = null;
+        try {
+            mContext.unregisterReceiver(mStopActionReceiver);
+        } catch (Exception e) {
+            //ignored
+        }
         if (null != mScreenRecorderService) {
             mScreenRecorderService.stopRecorder();
         }
-
         if (null != mStreamMuxer) {
             mStreamMuxer.close();
             mStreamMuxer = null;

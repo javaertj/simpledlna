@@ -5,8 +5,6 @@ import android.media.MediaFormat;
 
 import androidx.annotation.NonNull;
 
-import java.io.Serializable;
-
 import static com.ykbjson.lib.screenrecorder.ScreenRecorder.VIDEO_AVC;
 
 
@@ -17,7 +15,7 @@ import static com.ykbjson.lib.screenrecorder.ScreenRecorder.VIDEO_AVC;
  * <BR/>
  * CreatedAt：2019-07-29
  */
-public class VideoEncodeConfig implements Serializable {
+public class VideoEncodeConfig {
     final int width;
     final int height;
     final int bitrate;

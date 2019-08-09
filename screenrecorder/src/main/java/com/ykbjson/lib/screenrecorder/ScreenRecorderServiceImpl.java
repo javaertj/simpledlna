@@ -1,10 +1,8 @@
 package com.ykbjson.lib.screenrecorder;
 
 import android.app.Service;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Point;
@@ -13,7 +11,6 @@ import android.hardware.display.VirtualDisplay;
 import android.media.MediaCodecInfo;
 import android.media.projection.MediaProjection;
 import android.os.Binder;
-import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -85,9 +82,6 @@ public class ScreenRecorderServiceImpl extends Service {
         static final int MSG_STOP_RECORDER = MSG_PREPARE_RECORDER + 2;
         static final int MSG_DESTROY_RECORDER = MSG_PREPARE_RECORDER + 3;
 
-        static final String KEY_AUDIO_CONFIG = "audioConfig";
-        static final String KEY_VIDEO_CONFIG = "videoConfig";
-
         MediaProjection mMediaProjection;
         ScreenRecorder mScreenRecorder;
         VirtualDisplay mVirtualDisplay;
@@ -117,29 +111,30 @@ public class ScreenRecorderServiceImpl extends Service {
                 Log.e(TAG, "prepareAndStartRecorder,media projection is null");
                 return;
             }
-            mMediaProjection = mediaProjection;
-            final Bundle extra = new Bundle();
-            extra.putSerializable(KEY_AUDIO_CONFIG, audioConfig);
-            extra.putSerializable(KEY_VIDEO_CONFIG, videoConfig);
-            mHandler.obtainMessage(MSG_PREPARE_RECORDER, extra).sendToTarget();
+            mHandler.obtainMessage(MSG_PREPARE_RECORDER,
+                    new PrepareRecorderParam(mediaProjection, audioConfig, videoConfig)).sendToTarget();
         }
 
-        void handlePrepareAndStartRecorder(Bundle extra) {
+        void handlePrepareAndStartRecorder(PrepareRecorderParam extra) {
+            //maybe recorder is running
+            handleStopMediaProjection();
+            mMediaProjection = extra.mediaProjection;
             mMediaProjection.registerCallback(mProjectionCallback, new Handler());
             handleStartRecorder(extra);
         }
 
         @Override
         public void startRecorder(VideoEncodeConfig videoConfig, AudioEncodeConfig audioConfig) {
-            final Bundle extra = new Bundle();
-            extra.putSerializable(KEY_AUDIO_CONFIG, audioConfig);
-            extra.putSerializable(KEY_VIDEO_CONFIG, videoConfig);
-            mHandler.obtainMessage(MSG_START_RECORDER, extra).sendToTarget();
+            mHandler.obtainMessage(MSG_START_RECORDER,
+                    new PrepareRecorderParam(mMediaProjection, audioConfig, videoConfig)).sendToTarget();
         }
 
-        void handleStartRecorder(Bundle extra) {
-            final AudioEncodeConfig audioConfig = (AudioEncodeConfig) extra.getSerializable(KEY_AUDIO_CONFIG);
-            final VideoEncodeConfig videoConfig = (VideoEncodeConfig) extra.getSerializable(KEY_VIDEO_CONFIG);
+        void handleStartRecorder(PrepareRecorderParam extra) {
+            //maybe recorder is running
+            handleStopRecorder(false);
+
+            final AudioEncodeConfig audioConfig = extra.audioEncodeConfig;
+            final VideoEncodeConfig videoConfig = extra.videoEncodeConfig;
             prepareScreenRecorder(mMediaProjection, videoConfig, audioConfig);
             if (null == mScreenRecorder) {
                 Log.e(TAG, "startRecorder,ScreenRecorder has not been initialized yet");
@@ -148,7 +143,6 @@ public class ScreenRecorderServiceImpl extends Service {
             if (null != mCallback) {
                 mCallback.onPrepareRecorder();
             }
-            mContext.registerReceiver(mStopActionReceiver, new IntentFilter(Notifications.ACTION_STOP));
             mScreenRecorder.start();
         }
 
@@ -162,13 +156,23 @@ public class ScreenRecorderServiceImpl extends Service {
             mHandler.sendEmptyMessage(MSG_STOP_RECORDER);
         }
 
-        void handleStopRecorder() {
-            try {
-                mContext.unregisterReceiver(mStopActionReceiver);
-            } catch (Exception e) {
-                //ignored
+        void handleStopMediaProjection() {
+            if (mVirtualDisplay != null) {
+                mVirtualDisplay.setSurface(null);
+                mVirtualDisplay.release();
+                mVirtualDisplay = null;
             }
+            if (mMediaProjection != null) {
+                mMediaProjection.unregisterCallback(mProjectionCallback);
+                mMediaProjection.stop();
+                mMediaProjection = null;
+            }
+        }
 
+        void handleStopRecorder(boolean stopMediaProjection) {
+            if (stopMediaProjection) {
+                handleStopMediaProjection();
+            }
             if (null == mScreenRecorder) {
                 Log.e(TAG, "stopRecorder,ScreenRecorder has not been initialized yet");
                 return;
@@ -183,17 +187,7 @@ public class ScreenRecorderServiceImpl extends Service {
         }
 
         void handleDestroyRecorder() {
-            handleStopRecorder();
-            if (mVirtualDisplay != null) {
-                mVirtualDisplay.setSurface(null);
-                mVirtualDisplay.release();
-                mVirtualDisplay = null;
-            }
-            if (mMediaProjection != null) {
-                mMediaProjection.unregisterCallback(mProjectionCallback);
-                mMediaProjection.stop();
-                mMediaProjection = null;
-            }
+            handleStopRecorder(true);
             if (null != mHandler) {
                 mHandler.removeCallbacksAndMessages(null);
                 mHandler.getLooper().quitSafely();
@@ -331,14 +325,6 @@ public class ScreenRecorderServiceImpl extends Service {
             }
         };
 
-        BroadcastReceiver mStopActionReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (Notifications.ACTION_STOP.equals(intent.getAction())) {
-                    stopRecorder();
-                }
-            }
-        };
 
         static class WorkHandler extends Handler {
             private ScreenRecorderService mService;
@@ -354,15 +340,15 @@ public class ScreenRecorderServiceImpl extends Service {
 
                 switch (msg.what) {
                     case MSG_PREPARE_RECORDER:
-                        mService.handlePrepareAndStartRecorder((Bundle) msg.obj);
+                        mService.handlePrepareAndStartRecorder((PrepareRecorderParam) msg.obj);
                         break;
 
                     case MSG_START_RECORDER:
-                        mService.handleStartRecorder((Bundle) msg.obj);
+                        mService.handleStartRecorder((PrepareRecorderParam) msg.obj);
                         break;
 
                     case MSG_STOP_RECORDER:
-                        mService.handleStopRecorder();
+                        mService.handleStopRecorder(true);
                         break;
 
                     case MSG_DESTROY_RECORDER:
@@ -373,6 +359,19 @@ public class ScreenRecorderServiceImpl extends Service {
                         break;
 
                 }
+            }
+        }
+
+        private static class PrepareRecorderParam {
+            private MediaProjection mediaProjection;
+            private AudioEncodeConfig audioEncodeConfig;
+            private VideoEncodeConfig videoEncodeConfig;
+
+            private PrepareRecorderParam(MediaProjection mediaProjection, AudioEncodeConfig audioEncodeConfig,
+                                         VideoEncodeConfig videoEncodeConfig) {
+                this.mediaProjection = mediaProjection;
+                this.audioEncodeConfig = audioEncodeConfig;
+                this.videoEncodeConfig = videoEncodeConfig;
             }
         }
     }

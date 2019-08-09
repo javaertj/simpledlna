@@ -28,7 +28,7 @@ import static android.media.MediaFormat.MIMETYPE_VIDEO_AVC;
  */
 public class ScreenRecorder {
     private static final String TAG = "ScreenRecorder";
-    private static final boolean VERBOSE = false;
+    private static final boolean VERBOSE = true;
     private static final int INVALID_INDEX = -1;
     static final String VIDEO_AVC = MIMETYPE_VIDEO_AVC; // H.264 Advanced Video Coding
     static final String AUDIO_AAC = MIMETYPE_AUDIO_AAC; // H.264 Advanced Audio Coding
