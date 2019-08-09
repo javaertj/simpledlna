@@ -83,8 +83,8 @@ public class VideoEncodeConfig {
     }
 
     public static final class Builder {
-        private int width = 144;
-        private int height = 176;
+        private int width = 1080;
+        private int height = 1920;
         private int bitrate = 25000 * 1000;
         private int framerate = 60;
         private int iframeInterval = 30;
