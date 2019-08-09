@@ -199,6 +199,9 @@ public class ScreenRecorderServiceImpl extends Service {
                 mHandler.getLooper().quitSafely();
                 mHandler = null;
             }
+            if (null != mCallback) {
+                mCallback.onDestroyRecorder();
+            }
         }
 
         @Override

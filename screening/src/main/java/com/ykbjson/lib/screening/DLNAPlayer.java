@@ -665,6 +665,11 @@ public class DLNAPlayer {
         }
 
         @Override
+        public void onDestroyRecorder() {
+
+        }
+
+        @Override
         public void onMuxAudio(byte[] buffer, int offset, int length, MediaCodec.BufferInfo bufferInfo) {
             if (null != mStreamMuxer) {
                 mStreamMuxer.writeAudio(buffer, offset, length, bufferInfo);

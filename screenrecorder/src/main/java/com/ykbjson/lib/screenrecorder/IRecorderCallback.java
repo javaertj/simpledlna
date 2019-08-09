@@ -13,11 +13,13 @@ public interface IRecorderCallback {
 
     void onPrepareRecorder();
 
-    void onStopRecord(Throwable error);
-
     void onStartRecord();
 
     void onRecording(long presentationTimeUs);
+
+    void onStopRecord(Throwable error);
+
+    void onDestroyRecorder();
 
     void onMuxVideo(byte[] buffer, int offset, int length, MediaCodec.BufferInfo bufferInfo);
 
