@@ -441,6 +441,7 @@ public class ScreenRecorder {
     private void release() {
         if (mVirtualDisplay != null) {
             mVirtualDisplay.setSurface(null);
+            mVirtualDisplay.release();
             mVirtualDisplay = null;
         }
 
@@ -470,7 +471,10 @@ public class ScreenRecorder {
             }
             mMuxer = null;
         }
-        mHandler = null;
+        if (null != mHandler) {
+            mHandler.removeCallbacksAndMessages(null);
+            mHandler = null;
+        }
     }
 
     public VideoEncoder getVideoEncoder() {

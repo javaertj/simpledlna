@@ -136,17 +136,13 @@ public class ScreenRecorderServiceImpl extends Service {
             handleStopRecorder(false);
 
             //prepare EncodeConfig
-            final AudioEncodeConfig audioConfig = extra.audioEncodeConfig;
-            final VideoEncodeConfig videoConfig = extra.videoEncodeConfig;
-            if (null == mVideoEncodeConfig && null == videoConfig) {
+            mAudioEncodeConfig = extra.audioEncodeConfig;
+            mVideoEncodeConfig = extra.videoEncodeConfig;
+            if (null == mVideoEncodeConfig) {
                 mVideoEncodeConfig = VideoEncodeConfig.Builder.create().build();
-            } else if (mVideoEncodeConfig != videoConfig) {
-                mVideoEncodeConfig = videoConfig;
             }
-            if (null == mAudioEncodeConfig && null == audioConfig) {
+            if (null == mAudioEncodeConfig) {
                 mAudioEncodeConfig = AudioEncodeConfig.Builder.create().build();
-            } else if (mAudioEncodeConfig != audioConfig) {
-                mAudioEncodeConfig = audioConfig;
             }
             //prepare ScreenRecorder
             prepareScreenRecorder();
@@ -207,11 +203,13 @@ public class ScreenRecorderServiceImpl extends Service {
                 mHandler.getLooper().quitSafely();
                 mHandler = null;
             }
+            mVideoEncodeConfig = null;
+            mAudioEncodeConfig = null;
+            mContext = null;
             if (null != mCallback) {
                 mCallback.onDestroyRecord();
                 mCallback = null;
             }
-            mContext = null;
         }
 
         @Override
