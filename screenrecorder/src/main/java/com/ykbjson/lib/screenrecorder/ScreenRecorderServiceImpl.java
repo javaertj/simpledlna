@@ -82,6 +82,8 @@ public class ScreenRecorderServiceImpl extends Service {
         static final int MSG_STOP_RECORDER = MSG_PREPARE_RECORDER + 2;
         static final int MSG_DESTROY_RECORDER = MSG_PREPARE_RECORDER + 3;
 
+        VideoEncodeConfig mVideoEncodeConfig;
+        AudioEncodeConfig mAudioEncodeConfig;
         MediaProjection mMediaProjection;
         ScreenRecorder mScreenRecorder;
         VirtualDisplay mVirtualDisplay;
@@ -133,22 +135,34 @@ public class ScreenRecorderServiceImpl extends Service {
             //maybe recorder is running
             handleStopRecorder(false);
 
+            //prepare EncodeConfig
             final AudioEncodeConfig audioConfig = extra.audioEncodeConfig;
             final VideoEncodeConfig videoConfig = extra.videoEncodeConfig;
-            prepareScreenRecorder(mMediaProjection, videoConfig, audioConfig);
+            if (null == mVideoEncodeConfig && null == videoConfig) {
+                mVideoEncodeConfig = VideoEncodeConfig.Builder.create().build();
+            } else if (mVideoEncodeConfig != videoConfig) {
+                mVideoEncodeConfig = videoConfig;
+            }
+            if (null == mAudioEncodeConfig && null == audioConfig) {
+                mAudioEncodeConfig = AudioEncodeConfig.Builder.create().build();
+            } else if (mAudioEncodeConfig != audioConfig) {
+                mAudioEncodeConfig = audioConfig;
+            }
+            //prepare ScreenRecorder
+            prepareScreenRecorder();
             if (null == mScreenRecorder) {
-                Log.e(TAG, "startRecorder,ScreenRecorder has not been initialized yet");
+                Log.e(TAG, "startRecorder,prepare ScreenRecorder failure");
                 return;
             }
             if (null != mCallback) {
-                mCallback.onPrepareRecorder();
+                mCallback.onPrepareRecord();
             }
             mScreenRecorder.start();
         }
 
         @Override
         public void startRecorder() {
-            startRecorder(null, null);
+            startRecorder(mVideoEncodeConfig, mAudioEncodeConfig);
         }
 
         @Override
@@ -194,8 +208,10 @@ public class ScreenRecorderServiceImpl extends Service {
                 mHandler = null;
             }
             if (null != mCallback) {
-                mCallback.onDestroyRecorder();
+                mCallback.onDestroyRecord();
+                mCallback = null;
             }
+            mContext = null;
         }
 
         @Override
@@ -234,21 +250,18 @@ public class ScreenRecorderServiceImpl extends Service {
             mIsLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE;
         }
 
-        void prepareScreenRecorder(MediaProjection mediaProjection, VideoEncodeConfig video, AudioEncodeConfig audio) {
-            if (mediaProjection == null) {
+        void prepareScreenRecorder() {
+            if (mMediaProjection == null) {
                 Log.e(TAG, "prepareScreenRecorder,media projection is null");
                 return;
             }
             if (hasPermissions()) {
-                video = null == video ? VideoEncodeConfig.Builder.create().build() : video;
-                audio = null == audio ? AudioEncodeConfig.Builder.create().build() : audio;
-
-                MediaCodecInfo mediaCodecInfo = getVideoCodecInfo(video.codecName);
+                MediaCodecInfo mediaCodecInfo = getVideoCodecInfo(mVideoEncodeConfig.codecName);
                 MediaCodecInfo.CodecCapabilities capabilities = mediaCodecInfo.getCapabilitiesForType(VIDEO_AVC);
                 MediaCodecInfo.VideoCapabilities videoCapabilities = capabilities.getVideoCapabilities();
 
-                if (!videoCapabilities.isSizeSupported(video.width, video.height)) {
-                    Log.w(TAG, "prepareScreenRecorder,unSupport size," + video.codecName +
+                if (!videoCapabilities.isSizeSupported(mVideoEncodeConfig.width, mVideoEncodeConfig.height)) {
+                    Log.w(TAG, "prepareScreenRecorder,unSupport size," + mVideoEncodeConfig.codecName +
                             " height range: " + videoCapabilities.getSupportedHeights() +
                             "\n width range: " + videoCapabilities.getSupportedHeights());
                     return;
@@ -260,10 +273,10 @@ public class ScreenRecorderServiceImpl extends Service {
                     throw new RuntimeException("create file failure");
                 }
                 SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss", Locale.CHINA);
-                File file = new File(dir, "ScreenRecord_" + format.format(new Date()) + "_" + video.width
-                        + "x" + video.height + ".mp4");
-                Log.d(TAG, "prepareScreenRecorder,Create recorder with :" + video + " \n " + audio + "\n " + file);
-                mScreenRecorder = newRecorder(mediaProjection, video, audio, file);
+                File file = new File(dir, "ScreenRecord_" + format.format(new Date()) + "_" + mVideoEncodeConfig.width
+                        + "x" + mVideoEncodeConfig.height + ".mp4");
+                Log.d(TAG, "prepareScreenRecorder,Create recorder with :" + mVideoEncodeConfig + " \n " + mAudioEncodeConfig + "\n " + file);
+                mScreenRecorder = newRecorder(mMediaProjection, mVideoEncodeConfig, mAudioEncodeConfig, file);
             } else {
                 throw new RuntimeException("Permission denied! Screen recorder is cancel.");
             }

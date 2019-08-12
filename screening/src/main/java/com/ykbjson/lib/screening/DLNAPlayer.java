@@ -618,6 +618,10 @@ public class DLNAPlayer {
     private void prepareMediaProjection() {
         if (null != mScreenRecorderService) {
             mScreenRecorderService.registerRecorderCallback(mRecorderCallback);
+            if (mScreenRecorderService.hasPrepared()) {
+                mScreenRecorderService.startRecorder();
+                return;
+            }
             RequestMediaProjectionActivity.resultCallback = mRequestMediaProjectionResultCallback;
             RequestMediaProjectionActivity.start(mContext);
         }
@@ -625,7 +629,7 @@ public class DLNAPlayer {
 
     private IRecorderCallback mRecorderCallback = new IRecorderCallback() {
         @Override
-        public void onPrepareRecorder() {
+        public void onPrepareRecord() {
             mStreamMuxer = new RTMPStreamMuxer();
             StreamPublisher.StreamPublisherParam videoStreamPublisherParam =
                     new StreamPublisher.StreamPublisherParam.Builder()
@@ -674,7 +678,7 @@ public class DLNAPlayer {
         }
 
         @Override
-        public void onDestroyRecorder() {
+        public void onDestroyRecord() {
             mNotifications = null;
         }
 

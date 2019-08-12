@@ -11,7 +11,7 @@ import android.media.MediaCodec;
  */
 public interface IRecorderCallback {
 
-    void onPrepareRecorder();
+    void onPrepareRecord();
 
     void onStartRecord();
 
@@ -19,7 +19,7 @@ public interface IRecorderCallback {
 
     void onStopRecord(Throwable error);
 
-    void onDestroyRecorder();
+    void onDestroyRecord();
 
     void onMuxVideo(byte[] buffer, int offset, int length, MediaCodec.BufferInfo bufferInfo);
 
