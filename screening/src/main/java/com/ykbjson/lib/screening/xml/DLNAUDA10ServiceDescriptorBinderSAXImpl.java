@@ -26,7 +26,6 @@ public class DLNAUDA10ServiceDescriptorBinderSAXImpl extends UDA10ServiceDescrip
 
     @Override
     public <S extends Service> S describe(S undescribedService, String descriptorXml) throws DescriptorBindingException, ValidationException {
-
         if (descriptorXml == null || descriptorXml.length() == 0) {
             throw new DescriptorBindingException("Null or empty descriptor");
         }

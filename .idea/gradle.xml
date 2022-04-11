@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
-        <compositeConfiguration>
-          <compositeBuild compositeDefinitionSource="SCRIPT" />
-        </compositeConfiguration>
+        <option name="testRunner" value="GRADLE" />
         <option name="distributionType" value="DEFAULT_WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="resolveModulePerSourceSet" value="false" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/nginxserver" />
+            <option value="$PROJECT_DIR$/rtmplibs" />
+            <option value="$PROJECT_DIR$/screening" />
+            <option value="$PROJECT_DIR$/screenrecorder" />
+            <option value="$PROJECT_DIR$/simplepermission" />
+            <option value="$PROJECT_DIR$/webserver" />
+          </set>
+        </option>
       </GradleProjectSettings>
     </option>
   </component>
