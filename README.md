@@ -1,5 +1,5 @@
 # simpledlna
-基于cling实现的Android投屏方案
+基于cling实现的Android投屏方案。想本地测试的，可以在电脑端或者手机端安装一个kodi软件试试。
 
 # 源码解析参考
 
