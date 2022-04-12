@@ -27,6 +27,7 @@ import com.ykbjson.lib.screening.listener.DLNAStateCallback;
 import com.ykbjson.lib.screening.log.AndroidLoggingHandler;
 
 import org.fourthline.cling.android.AndroidUpnpService;
+import org.fourthline.cling.model.message.header.UpnpHeader;
 import org.fourthline.cling.model.meta.LocalDevice;
 import org.fourthline.cling.model.meta.RemoteDevice;
 import org.fourthline.cling.registry.Registry;
@@ -312,6 +313,20 @@ public final class DLNAManager {
         checkPrepared();
         mUpnpService.getRegistry().addListener(mRegistryListener);
         mUpnpService.getControlPoint().search();
+    }
+
+    public void startBrowser(int mxSeconds) {
+        checkConfig();
+        checkPrepared();
+        mUpnpService.getRegistry().addListener(mRegistryListener);
+        mUpnpService.getControlPoint().search(mxSeconds);
+    }
+
+    public void startBrowser(UpnpHeader searchType, int mxSeconds) {
+        checkConfig();
+        checkPrepared();
+        mUpnpService.getRegistry().addListener(mRegistryListener);
+        mUpnpService.getControlPoint().search(searchType,mxSeconds);
     }
 
     public void stopBrowser() {

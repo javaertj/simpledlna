@@ -436,7 +436,7 @@ public class DLNAPlayer {
         String metadata = pushMediaToRender(mMediaInfo);
         final Service avtService = mDevice.findService(AV_TRANSPORT_SERVICE);
         if (null == avtService) {
-            callback.onFailure(null, DLNAControlCallback.ERROR_CODE_SERVICE_ERROR, null);
+            callback.onFailure(null, DLNAControlCallback.ERROR_CODE_SERVICE_ERROR, "接收端不支持AV_TRANSPORT_SERVICE");
             return;
         }
         execute(new SetAVTransportURI(avtService, mMediaInfo.getUri(), metadata) {
@@ -568,12 +568,12 @@ public class DLNAPlayer {
 
     private boolean checkErrorBeforeExecute(Service avtService, @NonNull DLNAControlCallback callback) {
         if (currentState == UNKNOWN) {
-            callback.onFailure(null, DLNAControlCallback.ERROR_CODE_NOT_READY, null);
+            callback.onFailure(null, DLNAControlCallback.ERROR_CODE_NOT_READY, "当前设备链接还未准备好");
             return true;
         }
 
         if (null == avtService) {
-            callback.onFailure(null, DLNAControlCallback.ERROR_CODE_SERVICE_ERROR, null);
+            callback.onFailure(null, DLNAControlCallback.ERROR_CODE_SERVICE_ERROR, "当前设备不支持的服务类型");
             return true;
         }
 

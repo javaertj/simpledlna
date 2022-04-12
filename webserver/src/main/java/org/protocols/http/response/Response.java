@@ -354,6 +354,7 @@ public class Response implements Closeable {
             try {
                 outputStream.write(buff, 0, read);
             } catch (Exception e) {
+                e.printStackTrace();
                 if(this.data != null) {
                     this.data.close();
                 }

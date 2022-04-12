@@ -71,6 +71,7 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
                                 public void onConnected() {
                                     Log.d(TAG, "DLNAManager ,onConnected");
                                     initDlna();
+                                    DLNAManager.getInstance().startBrowser(30);
                                 }
 
                                 @Override
@@ -155,7 +156,7 @@ public class MainActivity extends AppCompatActivity implements DLNADeviceConnect
 
     @Override
     public void onDisconnect(DeviceInfo deviceInfo, int type, int errorCode) {
-
+        Toast.makeText(this, "连接设备失败", Toast.LENGTH_SHORT).show();
     }
 
     @Override
